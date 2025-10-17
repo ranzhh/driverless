@@ -17,3 +17,24 @@ Some 15 years ago and I haven't written it since, I'm more of a Python guy nowad
 
 #### Did you employ any external assistance for this?
 Of course, mostly perplexity to brush up on basics, Claude for some library mangling (let's say OpenCV installed via Brew wasn't where it should've been), and a repo of somebody else for the colour spaces because I didn't have the time for grid search + clicking through 300 images to find the colours that masked the best.
+
+## Tasks
+### Task 1: opening the image
+Self explanatory.
+
+### Task 2: finding the cones
+I opted for colour masking instead of a DL based approach because, as I mentioned earlier, I'm less familiar with thisw way and as such it was a more fun challenge. I'm basically looking for the colour of the cones in the image, masking out both the car and all greyish hues. After that, I'm doing some transformations to make the mask better, but they're all empirically tested - not really scientifically derived.
+
+### Task 3: dividing the cones based on colour
+Automatically done in the second task.
+
+### Task 4: Connect the edges
+The main challenge here was to ignore the points that were wrongly detected. In a production environment, I'd focus on improving the detection itself to get rid of those outliers. As an example, you could:
+- mask out the areas that don't belong to the floor, I'd avoid it since it doesn't scale well
+- do edge detection and merge the masks
+- look for the opposite stripe colour (black/white) and require the shape to be striped; I tried this approach but couldn't quite get it to work, but in principle it sounds good.
+
+I opted for just ordering the point by distance, then penalising the vertical distance even more; this is a common trick when training models, summing multiple losses, and it seems to have worked pretty well eliminating the outliers. Obviously if there were a "fake" cone standing in the middle of the track it wouldn't work, as I'm not reprojecting the curve and attempting to check that it is a valid shape or anything.
+
+### Task 5: Calculate rotation and translation from frame1 to frame2
+Just using ORB as suggested into brute force matching, not much to say here. This is the part that could be improved the most, ideally by working on a better matching logic (will maybe have the time for it this afternoon)
