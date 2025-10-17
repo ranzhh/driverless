@@ -24,6 +24,14 @@ cv::Mat detectColour(const cv::Mat &image, ColourMaskConfig cfg, const cv::Mat &
     if (dilate)
         cv::dilate(retMask, retMask, cv::Mat(), cv::Point(-1, -1), 2);
 
+    // Morphological operations to clean up the mask
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2, 2));
+
+    cv::imshow("Before Morph - " + cfg.name, retMask);
+    cv::waitKey(0);
+    cv::morphologyEx(retMask, retMask, cv::MORPH_CLOSE, kernel);
+    cv::morphologyEx(retMask, retMask, cv::MORPH_OPEN, kernel);
+
 #ifdef SHOW_COLOUR_MASKS
     cv::imshow("Mask - " + cfg.name, retMask);
     cv::waitKey(0);
@@ -99,11 +107,6 @@ std::vector<Cone> identifyCones(const cv::Mat &mask, const cv::Mat &image, int v
         cv::rectangle(img, cone.boundingBox, cv::Scalar(0, 255, 0), 1);
         cv::circle(img, cone.center, 2, cv::Scalar(255, 0, 0), -1);
     }
-
-#ifdef SHOW_DETECTED_CONES
-    cv::imshow("Detected Cones", img);
-    cv::waitKey(0);
-#endif
 
     return cones;
 }
