@@ -14,5 +14,5 @@ include_directories(${CMAKE_SOURCE_DIR}/src)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # Main executable
-add_executable(driverless main.cpp src/utils.cpp src/detection.cpp src/track.cpp)
+add_executable(driverless main.cpp src/utils.cpp src/detection.cpp src/track.cpp src/odometry.cpp)
 target_link_libraries(driverless ${OpenCV_LIBS})
