@@ -27,15 +27,8 @@ cv::Mat detectColour(const cv::Mat &image, ColourMaskConfig cfg, const cv::Mat &
     // Morphological operations to clean up the mask
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2, 2));
 
-    cv::imshow("Before Morph - " + cfg.name, retMask);
-    cv::waitKey(0);
     cv::morphologyEx(retMask, retMask, cv::MORPH_CLOSE, kernel);
     cv::morphologyEx(retMask, retMask, cv::MORPH_OPEN, kernel);
-
-#ifdef SHOW_COLOUR_MASKS
-    cv::imshow("Mask - " + cfg.name, retMask);
-    cv::waitKey(0);
-#endif
 
     return retMask;
 }

@@ -15,8 +15,8 @@ int main()
     if (img1.empty())
         return -1;
 
-    cv::imshow("Original image", img1);
-    cv::waitKey(0);
+    cv::imwrite("output/original_image.png", img1);
+    std::cout << "Saved: output/original_image.png" << std::endl;
 
     // Task 2: Detect the cones in the image
     std::cout << "Task 2 (and 3): Detecting cones (and their colour) in the image..." << std::endl;
@@ -55,10 +55,15 @@ int main()
     outputImage = connectCones(outputImage, blueCones, cv::Scalar(255, 0, 0), 150);
     outputImage = connectCones(outputImage, yellowCones, cv::Scalar(0, 255, 255), 150);
 
-    cv::imshow("Detected and connected cones", outputImage);
-    cv::waitKey(0);
+    cv::imwrite("output/detected_cones.png", outputImage);
+    std::cout << "Saved: output/detected_cones.png" << std::endl;
 
-    calcOdometry(img1, img2, carMask);
+    cv::Mat odometryResult = calcOdometry(img1, img2, carMask);
+    cv::imwrite("output/odometry_matches.png", odometryResult);
+    std::cout << "Saved: output/odometry_matches.png" << std::endl;
+
+    std::cout << "\nAll results saved to output/ directory" << std::endl;
+    std::cout << "View them at: http://localhost:8080" << std::endl;
 
     return 0;
 }

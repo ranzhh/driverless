@@ -1,8 +1,6 @@
 #include "../include/track.hpp"
 #include "../include/detection.hpp"
 
-#define SHOW_TRACK_LINES
-
 cv::Mat connectCones(const cv::Mat &image, std::vector<Cone> &cones, cv::Scalar lineColor, int maxDistance)
 {
     cv::Mat output;
@@ -63,9 +61,5 @@ cv::Mat connectCones(const cv::Mat &image, std::vector<Cone> &cones, cv::Scalar 
     // This also helps clean up the wrongly detected cones, as they don't fit the chain.
     cones = trackEdgeCones;
 
-#ifdef SHOW_TRACK_LINES
-    cv::imshow("Tracking", output);
-    cv::waitKey(0);
-#endif
     return output;
 }

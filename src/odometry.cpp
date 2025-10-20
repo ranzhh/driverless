@@ -64,8 +64,5 @@ cv::Mat calcOdometry(const cv::Mat &prevFrame, const cv::Mat &currFrame, cv::Mat
     cv::Mat imgMatches;
     cv::drawMatches(prevFrame, keypointsPrev, currFrame, keypointsCurr, goodMatches, imgMatches);
 
-    cv::imshow("Good Matches", imgMatches);
-    cv::waitKey(0);
-
     return imgMatches;
 }
