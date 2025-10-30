@@ -41,38 +41,33 @@ Just using ORB as suggested into brute force matching, not much to say here. Thi
 
 ## Parameter Configuration System
 
-The pipeline now supports configurable parameters via JSON configuration files. This allows fine-tuning of detection, tracking, and odometry without recompiling the C++ code.
+The pipeline supports configurable parameters via JSON configuration files. This allows fine-tuning of detection, tracking, and odometry without recompiling the C++ code.
 
-### Configuration File
-Parameters are loaded from `config/default_params.json`. The configuration includes:
+## Docker (Production Setup)
+For production deployment with proper frontend/backend separation:
 
-- **Color Detection**: Morphological operations (erosion, dilation, kernel size)
-- **Cone Identification**: Area thresholds, merge distances for different cone types
-- **Road Masking**: HSV color ranges for road detection
-- **Track Drawing**: Distance thresholds and penalties
-- **Odometry**: Camera intrinsics and RANSAC parameters
-
-### Web API for Parameters
-
-The server provides REST endpoints to manage parameters:
-
-**GET /api/params** - Retrieve current configuration
 ```bash
-curl http://localhost:8080/api/params
+docker compose up -d --build
 ```
 
-**POST /api/params** - Update configuration
+This will start:
+- **Backend service**: C++ pipeline executable (isolated)
+- **Frontend service**: Gradio web interface on port 7860
+
+Access the interface at **http://localhost:7860**
+
+The services are connected via a shared network, with volumes mounted for:
+- `./output` - Pipeline results
+- `./data` - Input data
+- `./config` - Parameter configuration
+
+To view logs:
 ```bash
-curl -X POST http://localhost:8080/api/params \
-  -H "Content-Type: application/json" \
-  -d '{
-    "color_detection": {"erosion_iterations": 2, "dilation_iterations": 3, "morph_kernel_size": 3},
-    "cone_identification": {"min_area": 25, "max_area": 5000, "v_threshold": 25, "h_threshold": 12},
-    "odometry": {"fx": 387.35, "fy": 387.35, "cx": 317.77, "cy": 242.49, "ransac_confidence": 0.999, "ransac_threshold": 1.0}
-  }'
+docker compose logs -f frontend
+docker compose logs -f backend
 ```
 
-After updating parameters, simply re-run the pipeline to see the effects.
-
-## Usage
-If you're on Mac, you have various choices, you can build the project, `make serve`, you name it. If you're on any other system, I highly recommend just running `docker compose up -d --build` and saving yourself the hassle. It should work out of the box and serve you a page on localhost:8080 (this was completely vibecoded) allowing you to view the results.
+To stop:
+```bash
+docker compose down
+```

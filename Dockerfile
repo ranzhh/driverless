@@ -1,19 +1,23 @@
 FROM python:3.11-slim
 
-# Install system dependencies
+# Install system dependencies for C++ pipeline and Python packages
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
     libopencv-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy project files
-COPY . .
+# Copy only requirements first for better caching
+COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy project files
+COPY . .
 
 # Comment out macOS-specific settings in CMakeLists.txt
 RUN sed -i 's|set(CMAKE_OSX_ARCHITECTURES "arm64")|# set(CMAKE_OSX_ARCHITECTURES "arm64")|' CMakeLists.txt && \
@@ -23,14 +27,13 @@ RUN sed -i 's|set(CMAKE_OSX_ARCHITECTURES "arm64")|# set(CMAKE_OSX_ARCHITECTURES
 # Build the C++ pipeline
 RUN make build
 
-# Create output directory
-RUN mkdir -p output
+# Create necessary directories
+RUN mkdir -p output config
 
-# Copy and make entrypoint script executable
-COPY docker-entrypoint.sh .
-RUN chmod +x docker-entrypoint.sh
+# Expose ports for both services
+# 7860 for Gradio frontend
+# 8080 for legacy compatibility
+EXPOSE 7860 8080
 
-EXPOSE 8080
-
-# Use entrypoint script
-CMD ["./docker-entrypoint.sh"]
+# Default command (can be overridden by docker-compose)
+CMD ["python", "gradio_app.py"]
