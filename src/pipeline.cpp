@@ -3,9 +3,25 @@
 #include "../include/detection.hpp"
 #include "../include/track.hpp"
 #include "../include/odometry.hpp"
+#include "../include/params.hpp"
 #include <fstream>
 #include <sstream>
 #include <iostream>
+
+// Global pipeline parameters
+static PipelineParams g_params;
+
+// Initialize parameters from config file
+void initializePipelineParams(const std::string &configPath)
+{
+    g_params = PipelineParams::loadFromFile(configPath);
+}
+
+// Get current parameters
+const PipelineParams &getPipelineParams()
+{
+    return g_params;
+}
 
 // JSON serialization helpers
 void saveConeDetectionToJson(const ConeDetectionResult &result, const std::string &filepath)
@@ -200,26 +216,43 @@ ConeDetectionResult detectConesFromImage(
     cv::Mat hsvImage;
     cv::cvtColor(img, hsvImage, cv::COLOR_BGR2HSV);
 
-    // Create masks
+    // Create masks using configured parameters
     cv::Mat carMask = createCarMask(img);
-    cv::Mat roadMask = detectColour(hsvImage, {"Road", {{cv::Scalar(0, 0, 0), cv::Scalar(179, 70, 190)}}}, carMask, false, true);
+    cv::Mat roadMask = detectColour(hsvImage, {"Road", {{g_params.roadMask.hsvLower, g_params.roadMask.hsvUpper}}}, carMask, false, true, g_params.colorDetection);
 
-    // Detect different colored cones
-    cv::Mat orangeMask = detectColour(hsvImage, getColourMask(ORANGE), carMask | roadMask, true);
-    cv::Mat blueMask = detectColour(hsvImage, getColourMask(BLUE), carMask | roadMask, true);
-    cv::Mat yellowMask = detectColour(hsvImage, getColourMask(YELLOW), carMask | roadMask, true);
+    // Detect different colored cones using configured parameters
+    cv::Mat orangeMask = detectColour(hsvImage, getColourMask(ORANGE), carMask | roadMask, true, false, g_params.colorDetection);
+    cv::Mat blueMask = detectColour(hsvImage, getColourMask(BLUE), carMask | roadMask, true, false, g_params.colorDetection);
+    cv::Mat yellowMask = detectColour(hsvImage, getColourMask(YELLOW), carMask | roadMask, true, false, g_params.colorDetection);
 
-    // Identify cones
-    result.orangeCones = identifyCones(orangeMask, img, 100, 10, 4000);
-    result.blueCones = identifyCones(blueMask, img, 20);
-    result.yellowCones = identifyCones(yellowMask, img, 20);
+    // Identify cones using configured parameters
+    result.orangeCones = identifyCones(orangeMask, img,
+                                       g_params.coneDetection.orange.verticalMergeThreshold,
+                                       g_params.coneDetection.orange.horizontalMergeThreshold,
+                                       g_params.coneDetection.orange.maxBoundingBoxArea,
+                                       g_params.coneDetection.minBoundingBoxArea);
 
-    // Refine orange cones (keep only closest 2)
-    std::sort(result.orangeCones.begin(), result.orangeCones.end(), [](const Cone &a, const Cone &b)
-              { return a.center.y > b.center.y; });
+    result.blueCones = identifyCones(blueMask, img,
+                                     g_params.coneDetection.blue.verticalMergeThreshold,
+                                     g_params.coneDetection.horizontalMergeThreshold,
+                                     g_params.coneDetection.maxBoundingBoxArea,
+                                     g_params.coneDetection.minBoundingBoxArea);
 
-    if (result.orangeCones.size() > 2)
-        result.orangeCones.resize(2);
+    result.yellowCones = identifyCones(yellowMask, img,
+                                       g_params.coneDetection.yellow.verticalMergeThreshold,
+                                       g_params.coneDetection.horizontalMergeThreshold,
+                                       g_params.coneDetection.maxBoundingBoxArea,
+                                       g_params.coneDetection.minBoundingBoxArea);
+
+    // Refine orange cones (keep only closest N as configured)
+    if (g_params.coneDetection.orange.keepClosestN > 0)
+    {
+        std::sort(result.orangeCones.begin(), result.orangeCones.end(), [](const Cone &a, const Cone &b)
+                  { return a.center.y > b.center.y; });
+
+        if (result.orangeCones.size() > (size_t)g_params.coneDetection.orange.keepClosestN)
+            result.orangeCones.resize(g_params.coneDetection.orange.keepClosestN);
+    }
 
     // Save results to JSON
     saveConeDetectionToJson(result, outputJsonPath);
@@ -253,12 +286,14 @@ cv::Mat drawTrackLinesFromCones(
     // Load cone detection results from JSON
     ConeDetectionResult cones = loadConeDetectionFromJson(inputJsonPath);
 
-    // Draw track lines
+    // Draw track lines using configured parameters
     cv::Mat outputImage;
     img.copyTo(outputImage);
 
-    outputImage = connectCones(outputImage, cones.blueCones, cv::Scalar(255, 0, 0), 150);
-    outputImage = connectCones(outputImage, cones.yellowCones, cv::Scalar(0, 255, 255), 150);
+    outputImage = connectCones(outputImage, cones.blueCones, cv::Scalar(255, 0, 0),
+                               g_params.trackDrawing.maxConeDistance, g_params.trackDrawing.verticalPenaltyFactor);
+    outputImage = connectCones(outputImage, cones.yellowCones, cv::Scalar(0, 255, 255),
+                               g_params.trackDrawing.maxConeDistance, g_params.trackDrawing.verticalPenaltyFactor);
 
     // Save output image
     cv::imwrite(outputImagePath, outputImage);
@@ -290,8 +325,8 @@ cv::Mat calculateOdometry(
     // Create car mask for the first image
     cv::Mat carMask = createCarMask(img1);
 
-    // Calculate odometry
-    cv::Mat odometryResult = calcOdometry(img1, img2, carMask);
+    // Calculate odometry using configured parameters
+    cv::Mat odometryResult = calcOdometry(img1, img2, carMask, g_params.odometry);
 
     // Save output image
     cv::imwrite(outputImagePath, odometryResult);

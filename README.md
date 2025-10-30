@@ -39,5 +39,40 @@ I opted for just ordering the point by distance, then penalising the vertical di
 ### Task 5: Calculate rotation and translation from frame1 to frame2
 Just using ORB as suggested into brute force matching, not much to say here. This is the part that could be improved the most, ideally by working on a better matching logic (will maybe have the time for it this afternoon)
 
+## Parameter Configuration System
+
+The pipeline now supports configurable parameters via JSON configuration files. This allows fine-tuning of detection, tracking, and odometry without recompiling the C++ code.
+
+### Configuration File
+Parameters are loaded from `config/default_params.json`. The configuration includes:
+
+- **Color Detection**: Morphological operations (erosion, dilation, kernel size)
+- **Cone Identification**: Area thresholds, merge distances for different cone types
+- **Road Masking**: HSV color ranges for road detection
+- **Track Drawing**: Distance thresholds and penalties
+- **Odometry**: Camera intrinsics and RANSAC parameters
+
+### Web API for Parameters
+
+The server provides REST endpoints to manage parameters:
+
+**GET /api/params** - Retrieve current configuration
+```bash
+curl http://localhost:8080/api/params
+```
+
+**POST /api/params** - Update configuration
+```bash
+curl -X POST http://localhost:8080/api/params \
+  -H "Content-Type: application/json" \
+  -d '{
+    "color_detection": {"erosion_iterations": 2, "dilation_iterations": 3, "morph_kernel_size": 3},
+    "cone_identification": {"min_area": 25, "max_area": 5000, "v_threshold": 25, "h_threshold": 12},
+    "odometry": {"fx": 387.35, "fy": 387.35, "cx": 317.77, "cy": 242.49, "ransac_confidence": 0.999, "ransac_threshold": 1.0}
+  }'
+```
+
+After updating parameters, simply re-run the pipeline to see the effects.
+
 ## Usage
 If you're on Mac, you have various choices, you can build the project, `make serve`, you name it. If you're on any other system, I highly recommend just running `docker compose up -d --build` and saving yourself the hassle. It should work out of the box and serve you a page on localhost:8080 (this was completely vibecoded) allowing you to view the results.

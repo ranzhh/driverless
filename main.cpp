@@ -4,6 +4,10 @@
 
 int main(int argc, char *argv[])
 {
+    // Load pipeline parameters from configuration file
+    std::string configPath = "config/default_params.json";
+    initializePipelineParams(configPath);
+
     std::cout << "=== MODULAR DRIVERLESS PIPELINE ===" << std::endl;
     std::cout << "This program demonstrates three independent steps:" << std::endl;
     std::cout << "  1. Detect cones and save to JSON" << std::endl;

@@ -577,6 +577,47 @@ async def get_status():
     }
 
 
+@app.get("/api/params")
+async def get_params():
+    """Get current parameter configuration."""
+    config_path = Path("config/default_params.json")
+
+    if not config_path.exists():
+        return {"error": "Configuration file not found"}
+
+    try:
+        with open(config_path, "r") as f:
+            params = json.load(f)
+        return {"success": True, "params": params, "config_file": str(config_path)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/params")
+async def update_params(params: dict):
+    """Update parameter configuration."""
+    config_path = Path("config/default_params.json")
+
+    try:
+        # Validate the structure
+        required_keys = ["color_detection", "cone_identification", "odometry"]
+        for key in required_keys:
+            if key not in params:
+                return {"success": False, "error": f"Missing required key: {key}"}
+
+        # Save to file with pretty formatting
+        with open(config_path, "w") as f:
+            json.dump(params, f, indent=2)
+
+        return {
+            "success": True,
+            "message": "Parameters updated successfully",
+            "config_file": str(config_path),
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 @app.post("/api/run-pipeline/{step}")
 async def run_pipeline(step: str):
     """Run the pipeline with specified step (1, 2, 3, or 'all')."""

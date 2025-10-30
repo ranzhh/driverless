@@ -1,6 +1,7 @@
 #include "../include/detection.hpp"
+#include "../include/params.hpp"
 
-cv::Mat calcOdometry(const cv::Mat &prevFrame, const cv::Mat &currFrame, cv::Mat negMask)
+cv::Mat calcOdometry(const cv::Mat &prevFrame, const cv::Mat &currFrame, cv::Mat negMask, const OdometryParams &params)
 {
     // Detect ORB keypoints and descriptors
     cv::Ptr<cv::ORB> orb = cv::ORB::create();
@@ -30,7 +31,7 @@ cv::Mat calcOdometry(const cv::Mat &prevFrame, const cv::Mat &currFrame, cv::Mat
     std::vector<cv::DMatch> goodMatches;
     for (int i = 0; i < descriptorsPrev.rows; i++)
     {
-        if (matches[i].distance <= std::max(2 * minDist, 30.0))
+        if (matches[i].distance <= std::max(params.matchDistanceMultiplier * minDist, params.matchDistanceMinimum))
         {
             goodMatches.push_back(matches[i]);
         }
@@ -45,11 +46,9 @@ cv::Mat calcOdometry(const cv::Mat &prevFrame, const cv::Mat &currFrame, cv::Mat
         pointsCurr.push_back(keypointsCurr[goodMatches[i].trainIdx].pt);
     }
 
-    // Compute Essential matrix
-    cv::Mat intrinsics = (cv::Mat_<double>(3, 3) << 387.3502807617188, 0, 317.7719116210938,
-                          0, 387.3502807617188, 242.4875946044922,
-                          0, 0, 1);
-    cv::Mat essentialMat = cv::findEssentialMat(pointsPrev, pointsCurr, intrinsics, cv::RANSAC, 0.999, 1.0);
+    // Compute Essential matrix using configured camera intrinsics
+    cv::Mat intrinsics = params.cameraIntrinsics.toMat();
+    cv::Mat essentialMat = cv::findEssentialMat(pointsPrev, pointsCurr, intrinsics, cv::RANSAC, params.ransacConfidence, params.ransacThreshold);
 
     // Recover pose from Essential matrix
     cv::Mat R, t;

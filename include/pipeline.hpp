@@ -41,4 +41,8 @@ cv::Mat calculateOdometry(
 void saveConeDetectionToJson(const ConeDetectionResult &result, const std::string &filepath);
 ConeDetectionResult loadConeDetectionFromJson(const std::string &filepath);
 
+// Parameter management functions
+void initializePipelineParams(const std::string &configPath);
+const struct PipelineParams &getPipelineParams();
+
 #endif // PIPELINE_HPP
