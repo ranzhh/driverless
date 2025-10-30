@@ -1,0 +1,55 @@
+{
+  "version": "1.0",
+  "description": "Driverless pipeline parameters - updated via Gradio",
+  "colorDetection": {
+    "erosionIterations": 2,
+    "dilationIterations": 2,
+    "morphKernelSize": 2
+  },
+  "coneDetection": {
+    "minBoundingBoxArea": 20,
+    "maxBoundingBoxArea": 4000,
+    "verticalMergeThreshold": 20,
+    "horizontalMergeThreshold": 10,
+    "orange": {
+      "maxBoundingBoxArea": 6000,
+      "verticalMergeThreshold": 100,
+      "horizontalMergeThreshold": 10,
+      "keepClosestN": 2
+    },
+    "blue": {
+      "verticalMergeThreshold": 100
+    },
+    "yellow": {
+      "verticalMergeThreshold": 100
+    }
+  },
+  "roadMask": {
+    "hsvLower": [
+      0,
+      0,
+      0
+    ],
+    "hsvUpper": [
+      179,
+      70,
+      190
+    ]
+  },
+  "trackDrawing": {
+    "maxConeDistance": 150,
+    "verticalPenaltyFactor": 3.5
+  },
+  "odometry": {
+    "cameraIntrinsics": {
+      "fx": 387.3502807617188,
+      "fy": 387.3502807617188,
+      "cx": 317.7719116210938,
+      "cy": 242.4875946044922
+    },
+    "ransacConfidence": 0.999,
+    "ransacThreshold": 1.0,
+    "matchDistanceMultiplier": 2.0,
+    "matchDistanceMinimum": 30.0
+  }
+}

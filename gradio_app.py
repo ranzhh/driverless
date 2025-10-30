@@ -36,6 +36,8 @@ def load_current_params():
 
 def save_current_params(params_dict):
     """Save current parameters to JSON config file."""
+    # Ensure config directory exists
+    CURRENT_PARAMS_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(CURRENT_PARAMS_FILE, "w") as f:
         json.dump(params_dict, f, indent=2)
     return "✅ Parameters saved successfully!"
@@ -43,6 +45,8 @@ def save_current_params(params_dict):
 
 def save_as_config(params_dict):
     """Save parameters to the config file used by the C++ pipeline."""
+    # Ensure config directory exists
+    DEFAULT_PARAMS_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(DEFAULT_PARAMS_FILE, "w") as f:
         json.dump(params_dict, f, indent=2)
 
@@ -50,6 +54,9 @@ def save_as_config(params_dict):
 def run_pipeline(step="all"):
     """Run the C++ pipeline with specified step."""
     try:
+        # Ensure output directory exists
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
         cmd = ["./build/driverless"]
         if step != "all":
             cmd.append(step)
@@ -62,14 +69,23 @@ def run_pipeline(step="all"):
             odometry_img = None
             json_file = None
 
-            if (OUTPUT_DIR / "detected_cones.png").exists():
-                cones_img = Image.open(OUTPUT_DIR / "detected_cones.png")
+            try:
+                if (OUTPUT_DIR / "detected_cones.png").exists():
+                    cones_img = Image.open(OUTPUT_DIR / "detected_cones.png")
+            except Exception as e:
+                print(f"Warning: Could not load detected_cones.png: {e}")
 
-            if (OUTPUT_DIR / "odometry_matches.png").exists():
-                odometry_img = Image.open(OUTPUT_DIR / "odometry_matches.png")
+            try:
+                if (OUTPUT_DIR / "odometry_matches.png").exists():
+                    odometry_img = Image.open(OUTPUT_DIR / "odometry_matches.png")
+            except Exception as e:
+                print(f"Warning: Could not load odometry_matches.png: {e}")
 
-            if (OUTPUT_DIR / "detected_cones.json").exists():
-                json_file = str(OUTPUT_DIR / "detected_cones.json")
+            try:
+                if (OUTPUT_DIR / "detected_cones.json").exists():
+                    json_file = str(OUTPUT_DIR / "detected_cones.json")
+            except Exception as e:
+                print(f"Warning: Could not access detected_cones.json: {e}")
 
             return (
                 f"✅ Pipeline step '{step}' completed successfully!\n\n{result.stdout}",
@@ -86,6 +102,13 @@ def run_pipeline(step="all"):
             )
     except subprocess.TimeoutExpired:
         return "❌ Pipeline execution timeout (30s)", None, None, None
+    except FileNotFoundError:
+        return (
+            "❌ Error: Pipeline executable not found. Please build the project first.",
+            None,
+            None,
+            None,
+        )
     except Exception as e:
         return f"❌ Error: {str(e)}", None, None, None
 
