@@ -27,3 +27,6 @@ task2:
 
 run:
 	./build/driverless
+
+serve:
+	./start.sh
