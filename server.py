@@ -250,6 +250,93 @@ async def root():
         .reloading {
             animation: pulse 1s infinite;
         }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+            border: 2px solid #ddd;
+        }
+        
+        .btn-secondary:hover {
+            background: #e8e8e8;
+        }
+        
+        .pipeline-status {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .pipeline-status.show {
+            display: block;
+        }
+        
+        .pipeline-status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .pipeline-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .pipeline-status.running {
+            background: #cce5ff;
+            color: #004085;
+            border: 1px solid #b8daff;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .spinner {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+        }
     </style>
 </head>
 <body>
@@ -259,6 +346,26 @@ async def root():
             <p class="subtitle">Real-time visualization of cone detection, track lines, and odometry</p>
             <span id="status" class="status disconnected">Connecting...</span>
         </header>
+        
+        <!-- Control Panel -->
+        <div class="card" style="margin-bottom: 30px;">
+            <h2>🎮 Pipeline Controls</h2>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="runPipeline('all')" id="btn-all">
+                    🚀 Run All Steps
+                </button>
+                <button class="btn btn-secondary" onclick="runPipeline('1')" id="btn-1">
+                    1️⃣ Detect Cones
+                </button>
+                <button class="btn btn-secondary" onclick="runPipeline('2')" id="btn-2">
+                    2️⃣ Draw Tracks
+                </button>
+                <button class="btn btn-secondary" onclick="runPipeline('3')" id="btn-3">
+                    3️⃣ Calculate Odometry
+                </button>
+            </div>
+            <div id="pipeline-status" class="pipeline-status"></div>
+        </div>
         
         <div class="grid">
             <!-- Cone Detection with Track Lines -->
@@ -388,6 +495,44 @@ async def root():
             loadJSON();
         }
         
+        async function runPipeline(step) {
+            const statusDiv = document.getElementById('pipeline-status');
+            const buttons = document.querySelectorAll('.btn');
+            
+            // Disable all buttons
+            buttons.forEach(btn => btn.disabled = true);
+            
+            // Show running status
+            statusDiv.className = 'pipeline-status running show';
+            statusDiv.innerHTML = '<span class="spinner">⏳</span> Running pipeline step ' + step + '...';
+            
+            try {
+                const response = await fetch(`/api/run-pipeline/${step}`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.className = 'pipeline-status success show';
+                    statusDiv.innerHTML = '✅ ' + result.message;
+                    
+                    // Auto-hide success message after 5 seconds
+                    setTimeout(() => {
+                        statusDiv.classList.remove('show');
+                    }, 5000);
+                } else {
+                    statusDiv.className = 'pipeline-status error show';
+                    statusDiv.innerHTML = '❌ Error: ' + result.error;
+                }
+            } catch (error) {
+                statusDiv.className = 'pipeline-status error show';
+                statusDiv.innerHTML = '❌ Network error: ' + error.message;
+            } finally {
+                // Re-enable buttons
+                buttons.forEach(btn => btn.disabled = false);
+            }
+        }
+        
         // Connect when page loads
         connectWebSocket();
     </script>
@@ -430,6 +575,54 @@ async def get_status():
         "active_connections": len(active_connections),
         "timestamp": datetime.now().isoformat(),
     }
+
+
+@app.post("/api/run-pipeline/{step}")
+async def run_pipeline(step: str):
+    """Run the pipeline with specified step (1, 2, 3, or 'all')."""
+    import subprocess
+
+    # Validate step
+    valid_steps = ["1", "2", "3", "all"]
+    if step not in valid_steps:
+        return {"success": False, "error": "Invalid step. Use 1, 2, 3, or all"}
+
+    try:
+        # Build command
+        cmd = ["./build/driverless"]
+        if step != "all":
+            cmd.append(step)
+
+        # Run pipeline in background
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        # Wait for completion with timeout
+        stdout, stderr = process.communicate(timeout=30)
+
+        if process.returncode == 0:
+            return {
+                "success": True,
+                "step": step,
+                "message": f"Pipeline step {step} completed successfully",
+                "output": stdout,
+            }
+        else:
+            return {
+                "success": False,
+                "step": step,
+                "error": f"Pipeline failed with code {process.returncode}",
+                "output": stderr,
+            }
+    except subprocess.TimeoutExpired:
+        process.kill()
+        return {"success": False, "error": "Pipeline execution timeout (30s)"}
+    except FileNotFoundError:
+        return {
+            "success": False,
+            "error": "Pipeline executable not found. Make sure ./build/driverless exists.",
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 if __name__ == "__main__":

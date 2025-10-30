@@ -38,3 +38,6 @@ I opted for just ordering the point by distance, then penalising the vertical di
 
 ### Task 5: Calculate rotation and translation from frame1 to frame2
 Just using ORB as suggested into brute force matching, not much to say here. This is the part that could be improved the most, ideally by working on a better matching logic (will maybe have the time for it this afternoon)
+
+## Usage
+If you're on Mac, you have various choices, you can build the project, `make serve`, you name it. If you're on any other system, I highly recommend just running `docker compose up -d --build` and saving yourself the hassle. It should work out of the box and serve you a page on localhost:8080 (this was completely vibecoded) allowing you to view the results.
