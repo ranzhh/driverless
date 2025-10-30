@@ -66,3 +66,6 @@ archive/
 # Temporary files
 *.log
 .DS_Store
+
+# Output files
+output/

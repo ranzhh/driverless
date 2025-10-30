@@ -13,57 +13,38 @@ from PIL import Image
 
 # Configuration
 OUTPUT_DIR = Path("output")
-CONFIG_FILE = Path("config/default_params.json")
-
-# Default parameters
-DEFAULT_PARAMS = {
-    "version": "1.0",
-    "description": "Driverless pipeline parameters - default configuration",
-    "colorDetection": {"erosionIterations": 1, "dilationIterations": 2, "morphKernelSize": 2},
-    "coneDetection": {
-        "minBoundingBoxArea": 20,
-        "maxBoundingBoxArea": 4000,
-        "verticalMergeThreshold": 20,
-        "horizontalMergeThreshold": 10,
-        "orange": {
-            "maxBoundingBoxArea": 4000,
-            "verticalMergeThreshold": 100,
-            "horizontalMergeThreshold": 10,
-            "keepClosestN": 2,
-        },
-        "blue": {"verticalMergeThreshold": 20},
-        "yellow": {"verticalMergeThreshold": 20},
-    },
-    "roadMask": {"hsvLower": [0, 0, 0], "hsvUpper": [179, 70, 190]},
-    "trackDrawing": {"maxConeDistance": 150, "verticalPenaltyFactor": 3.5},
-    "odometry": {
-        "cameraIntrinsics": {
-            "fx": 387.3502807617188,
-            "fy": 387.3502807617188,
-            "cx": 317.7719116210938,
-            "cy": 242.4875946044922,
-        },
-        "ransacConfidence": 0.999,
-        "ransacThreshold": 1.0,
-        "matchDistanceMultiplier": 2.0,
-        "matchDistanceMinimum": 30.0,
-    },
-}
+DEFAULT_PARAMS_FILE = Path("config/default_params.json")
+CURRENT_PARAMS_FILE = Path("config/current_params.json")
 
 
-def load_params():
-    """Load parameters from JSON config file."""
-    if CONFIG_FILE.exists():
-        with open(CONFIG_FILE, "r") as f:
+def load_default_params():
+    """Load default parameters from JSON config file."""
+    if DEFAULT_PARAMS_FILE.exists():
+        with open(DEFAULT_PARAMS_FILE, "r") as f:
             return json.load(f)
     return {}
 
 
-def save_params(params_dict):
-    """Save parameters to JSON config file."""
-    with open(CONFIG_FILE, "w") as f:
+def load_current_params():
+    """Load current parameters from JSON config file."""
+    if CURRENT_PARAMS_FILE.exists():
+        with open(CURRENT_PARAMS_FILE, "r") as f:
+            return json.load(f)
+    # If no current params exist, use defaults
+    return load_default_params()
+
+
+def save_current_params(params_dict):
+    """Save current parameters to JSON config file."""
+    with open(CURRENT_PARAMS_FILE, "w") as f:
         json.dump(params_dict, f, indent=2)
     return "✅ Parameters saved successfully!"
+
+
+def save_as_config(params_dict):
+    """Save parameters to the config file used by the C++ pipeline."""
+    with open(DEFAULT_PARAMS_FILE, "w") as f:
+        json.dump(params_dict, f, indent=2)
 
 
 def run_pipeline(step="all"):
@@ -109,53 +90,67 @@ def run_pipeline(step="all"):
         return f"❌ Error: {str(e)}", None, None, None
 
 
+def compare_with_defaults(current_value, default_value):
+    """Compare current value with default to determine if it's modified."""
+    return current_value != default_value
+
+
+def get_slider_elem_classes(current_value, default_value):
+    """Return CSS classes for slider based on whether value differs from default."""
+    if compare_with_defaults(current_value, default_value):
+        return "modified-param"
+    return ""
+
+
 def restore_defaults():
     """Restore default parameters."""
-    save_params(DEFAULT_PARAMS)
+    defaults = load_default_params()
+    save_current_params(defaults)
+
     # Return all default values for the UI
     return [
         # Color detection
-        DEFAULT_PARAMS["colorDetection"]["erosionIterations"],
-        DEFAULT_PARAMS["colorDetection"]["dilationIterations"],
-        DEFAULT_PARAMS["colorDetection"]["morphKernelSize"],
+        defaults["colorDetection"]["erosionIterations"],
+        defaults["colorDetection"]["dilationIterations"],
+        defaults["colorDetection"]["morphKernelSize"],
         # Cone identification
-        DEFAULT_PARAMS["coneDetection"]["minBoundingBoxArea"],
-        DEFAULT_PARAMS["coneDetection"]["maxBoundingBoxArea"],
-        DEFAULT_PARAMS["coneDetection"]["verticalMergeThreshold"],
-        DEFAULT_PARAMS["coneDetection"]["horizontalMergeThreshold"],
+        defaults["coneDetection"]["minBoundingBoxArea"],
+        defaults["coneDetection"]["maxBoundingBoxArea"],
+        defaults["coneDetection"]["verticalMergeThreshold"],
+        defaults["coneDetection"]["horizontalMergeThreshold"],
         # Orange cone specific
-        DEFAULT_PARAMS["coneDetection"]["orange"]["maxBoundingBoxArea"],
-        DEFAULT_PARAMS["coneDetection"]["orange"]["verticalMergeThreshold"],
-        DEFAULT_PARAMS["coneDetection"]["orange"]["horizontalMergeThreshold"],
-        DEFAULT_PARAMS["coneDetection"]["orange"]["keepClosestN"],
+        defaults["coneDetection"]["orange"]["maxBoundingBoxArea"],
+        defaults["coneDetection"]["orange"]["verticalMergeThreshold"],
+        defaults["coneDetection"]["orange"]["horizontalMergeThreshold"],
+        defaults["coneDetection"]["orange"]["keepClosestN"],
         # Blue cone specific
-        DEFAULT_PARAMS["coneDetection"]["blue"]["verticalMergeThreshold"],
+        defaults["coneDetection"]["blue"]["verticalMergeThreshold"],
         # Yellow cone specific
-        DEFAULT_PARAMS["coneDetection"]["yellow"]["verticalMergeThreshold"],
+        defaults["coneDetection"]["yellow"]["verticalMergeThreshold"],
         # Road mask
-        DEFAULT_PARAMS["roadMask"]["hsvLower"][0],
-        DEFAULT_PARAMS["roadMask"]["hsvLower"][1],
-        DEFAULT_PARAMS["roadMask"]["hsvLower"][2],
-        DEFAULT_PARAMS["roadMask"]["hsvUpper"][0],
-        DEFAULT_PARAMS["roadMask"]["hsvUpper"][1],
-        DEFAULT_PARAMS["roadMask"]["hsvUpper"][2],
+        defaults["roadMask"]["hsvLower"][0],
+        defaults["roadMask"]["hsvLower"][1],
+        defaults["roadMask"]["hsvLower"][2],
+        defaults["roadMask"]["hsvUpper"][0],
+        defaults["roadMask"]["hsvUpper"][1],
+        defaults["roadMask"]["hsvUpper"][2],
         # Track drawing
-        DEFAULT_PARAMS["trackDrawing"]["maxConeDistance"],
-        DEFAULT_PARAMS["trackDrawing"]["verticalPenaltyFactor"],
+        defaults["trackDrawing"]["maxConeDistance"],
+        defaults["trackDrawing"]["verticalPenaltyFactor"],
         # Odometry
-        DEFAULT_PARAMS["odometry"]["cameraIntrinsics"]["fx"],
-        DEFAULT_PARAMS["odometry"]["cameraIntrinsics"]["fy"],
-        DEFAULT_PARAMS["odometry"]["cameraIntrinsics"]["cx"],
-        DEFAULT_PARAMS["odometry"]["cameraIntrinsics"]["cy"],
-        DEFAULT_PARAMS["odometry"]["ransacConfidence"],
-        DEFAULT_PARAMS["odometry"]["ransacThreshold"],
-        DEFAULT_PARAMS["odometry"]["matchDistanceMultiplier"],
-        DEFAULT_PARAMS["odometry"]["matchDistanceMinimum"],
+        defaults["odometry"]["cameraIntrinsics"]["fx"],
+        defaults["odometry"]["cameraIntrinsics"]["fy"],
+        defaults["odometry"]["cameraIntrinsics"]["cx"],
+        defaults["odometry"]["cameraIntrinsics"]["cy"],
+        defaults["odometry"]["ransacConfidence"],
+        defaults["odometry"]["ransacThreshold"],
+        defaults["odometry"]["matchDistanceMultiplier"],
+        defaults["odometry"]["matchDistanceMinimum"],
         "✅ Parameters restored to defaults!",
     ]
 
 
-def update_params(
+def save_and_run_pipeline(
     # Color detection
     erosion_iter,
     dilation_iter,
@@ -194,7 +189,8 @@ def update_params(
     match_dist_mult,
     match_dist_min,
 ):
-    """Update parameters from Gradio inputs."""
+    """Save parameters and run the pipeline."""
+    # Build parameters dict
     params = {
         "version": "1.0",
         "description": "Driverless pipeline parameters - updated via Gradio",
@@ -239,402 +235,592 @@ def update_params(
         },
     }
 
-    return save_params(params)
+    # Save to current params
+    save_current_params(params)
+
+    # Save to config file used by C++ pipeline
+    save_as_config(params)
+
+    # Run the pipeline
+    output, cones_img, odometry_img, json_file = run_pipeline("all")
+
+    # Return all outputs for display + show results page
+    return (
+        output,
+        cones_img,
+        odometry_img,
+        json_file,
+        gr.update(visible=False),  # Hide config page
+        gr.update(visible=True),  # Show results page
+    )
 
 
 # Build the Gradio interface
-with gr.Blocks(title="Driverless Pipeline Controller", theme=gr.themes.Soft()) as app:
+with gr.Blocks(
+    title="Driverless Pipeline Controller",
+    theme=gr.themes.Soft(),
+    css="""
+    .modified-param label {
+        color: #ff8800 !important;
+        font-weight: bold !important;
+    }
+    .modified-param input[type="range"] {
+        accent-color: #ff8800 !important;
+    }
+    .modified-param input[type="number"] {
+        border-color: #ff8800 !important;
+    }
+""",
+) as app:
     gr.Markdown("# 🏎️ Driverless Vision Pipeline")
     gr.Markdown(
         "Interactive parameter tuning and visualization for cone detection, tracking, and odometry"
     )
 
-    with gr.Tabs():
-        # Pipeline execution tab
-        with gr.Tab("🚀 Run Pipeline"):
-            gr.Markdown("### Execute Pipeline Steps")
+    # Landing page with start button
+    with gr.Column(visible=True) as landing_page:
+        gr.Markdown("### Ready to run the vision pipeline")
+        gr.Markdown("Click below to configure parameters and execute the pipeline")
+        start_btn = gr.Button("▶️ Start Pipeline", variant="primary", size="lg")
 
-            with gr.Row():
-                step_choice = gr.Radio(
-                    choices=["all", "1", "2", "3"],
-                    value="all",
-                    label="Select Step",
-                    info="1: Detect Cones | 2: Draw Tracks | 3: Calculate Odometry",
-                )
-                run_btn = gr.Button("▶️ Run Pipeline", variant="primary", size="lg")
+    # Parameter configuration page
+    with gr.Column(visible=False) as config_page:
+        gr.Markdown("### Configure Pipeline Parameters")
+        gr.Markdown("*Parameters shown in orange are different from default values*")
 
-            output_text = gr.Textbox(label="Pipeline Output", lines=6, max_lines=10)
+        with gr.Row():
+            run_pipeline_btn = gr.Button("▶️ Run", variant="primary", size="lg")
+            restore_btn = gr.Button("🔄 Restore Defaults", variant="secondary", size="lg")
 
-            gr.Markdown("### Results")
-            with gr.Row():
-                cones_image = gr.Image(
-                    label="🔵 Cone Detection + Track Lines", type="pil", height=400
-                )
-                odometry_image = gr.Image(label="🎯 Odometry Matches", type="pil", height=400)
+        status_msg = gr.Textbox(label="Status", lines=1, visible=False)
 
-            with gr.Row():
-                json_download = gr.File(
-                    label="📥 Download Detected Cones (JSON)", interactive=False
-                )
+        gr.Markdown("---")
+        gr.Markdown("### Parameters")
 
-            run_btn.click(
-                fn=run_pipeline,
-                inputs=[step_choice],
-                outputs=[output_text, cones_image, odometry_image, json_download],
+        # Load current and default params
+        current_params = load_current_params()
+        default_params = load_default_params()
+
+        gr.Markdown("#### Color Detection")
+        with gr.Row():
+            erosion_iter = gr.Slider(
+                0,
+                5,
+                value=current_params.get("colorDetection", {}).get("erosionIterations", 1),
+                step=1,
+                label="Erosion Iterations",
+                elem_classes=get_slider_elem_classes(
+                    current_params.get("colorDetection", {}).get("erosionIterations", 1),
+                    default_params.get("colorDetection", {}).get("erosionIterations", 1),
+                ),
+            )
+            dilation_iter = gr.Slider(
+                0,
+                5,
+                value=current_params.get("colorDetection", {}).get("dilationIterations", 2),
+                step=1,
+                label="Dilation Iterations",
+                elem_classes=get_slider_elem_classes(
+                    current_params.get("colorDetection", {}).get("dilationIterations", 2),
+                    default_params.get("colorDetection", {}).get("dilationIterations", 2),
+                ),
+            )
+            morph_kernel = gr.Slider(
+                1,
+                7,
+                value=current_params.get("colorDetection", {}).get("morphKernelSize", 2),
+                step=1,
+                label="Morphological Kernel Size",
+                elem_classes=get_slider_elem_classes(
+                    current_params.get("colorDetection", {}).get("morphKernelSize", 2),
+                    default_params.get("colorDetection", {}).get("morphKernelSize", 2),
+                ),
             )
 
-        # Parameter configuration tab
-        with gr.Tab("⚙️ Configure Parameters"):
-            params = load_params()
+        gr.Markdown("#### Cone Identification")
+        with gr.Row():
+            min_area = gr.Slider(
+                0,
+                100,
+                value=current_params.get("coneDetection", {}).get("minBoundingBoxArea", 20),
+                step=1,
+                label="Min Bounding Box Area",
+                elem_classes=get_slider_elem_classes(
+                    current_params.get("coneDetection", {}).get("minBoundingBoxArea", 20),
+                    default_params.get("coneDetection", {}).get("minBoundingBoxArea", 20),
+                ),
+            )
+            max_area = gr.Slider(
+                100,
+                10000,
+                value=current_params.get("coneDetection", {}).get("maxBoundingBoxArea", 4000),
+                step=100,
+                label="Max Bounding Box Area",
+                elem_classes=get_slider_elem_classes(
+                    current_params.get("coneDetection", {}).get("maxBoundingBoxArea", 4000),
+                    default_params.get("coneDetection", {}).get("maxBoundingBoxArea", 4000),
+                ),
+            )
+        with gr.Row():
+            v_threshold = gr.Slider(
+                0,
+                100,
+                value=current_params.get("coneDetection", {}).get("verticalMergeThreshold", 20),
+                step=1,
+                label="Vertical Merge Threshold",
+                elem_classes=get_slider_elem_classes(
+                    current_params.get("coneDetection", {}).get("verticalMergeThreshold", 20),
+                    default_params.get("coneDetection", {}).get("verticalMergeThreshold", 20),
+                ),
+            )
+            h_threshold = gr.Slider(
+                0,
+                50,
+                value=current_params.get("coneDetection", {}).get("horizontalMergeThreshold", 10),
+                step=1,
+                label="Horizontal Merge Threshold",
+                elem_classes=get_slider_elem_classes(
+                    current_params.get("coneDetection", {}).get("horizontalMergeThreshold", 10),
+                    default_params.get("coneDetection", {}).get("horizontalMergeThreshold", 10),
+                ),
+            )
 
-            gr.Markdown("### Color Detection Parameters")
-            with gr.Row():
-                erosion_iter = gr.Slider(
-                    0,
-                    5,
-                    value=params.get("colorDetection", {}).get("erosionIterations", 1),
-                    step=1,
-                    label="Erosion Iterations",
-                )
-                dilation_iter = gr.Slider(
-                    0,
-                    5,
-                    value=params.get("colorDetection", {}).get("dilationIterations", 2),
-                    step=1,
-                    label="Dilation Iterations",
-                )
-                morph_kernel = gr.Slider(
-                    1,
-                    7,
-                    value=params.get("colorDetection", {}).get("morphKernelSize", 2),
-                    step=1,
-                    label="Morphological Kernel Size",
-                )
-
-            gr.Markdown("### Cone Identification Parameters")
-            with gr.Row():
-                min_area = gr.Slider(
-                    0,
-                    100,
-                    value=params.get("coneDetection", {}).get("minBoundingBoxArea", 20),
-                    step=1,
-                    label="Min Bounding Box Area",
-                )
-                max_area = gr.Slider(
-                    100,
-                    10000,
-                    value=params.get("coneDetection", {}).get("maxBoundingBoxArea", 4000),
-                    step=100,
-                    label="Max Bounding Box Area",
-                )
-            with gr.Row():
-                v_threshold = gr.Slider(
-                    0,
-                    100,
-                    value=params.get("coneDetection", {}).get("verticalMergeThreshold", 20),
-                    step=1,
-                    label="Vertical Merge Threshold",
-                )
-                h_threshold = gr.Slider(
-                    0,
-                    50,
-                    value=params.get("coneDetection", {}).get("horizontalMergeThreshold", 10),
-                    step=1,
-                    label="Horizontal Merge Threshold",
-                )
-
-            gr.Markdown("#### Orange Cone Specific")
+        with gr.Accordion("Orange Cone Specific", open=False):
             with gr.Row():
                 orange_max_area = gr.Slider(
                     100,
                     10000,
-                    value=params.get("coneDetection", {})
+                    value=current_params.get("coneDetection", {})
                     .get("orange", {})
                     .get("maxBoundingBoxArea", 4000),
                     step=100,
                     label="Max Area",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("coneDetection", {})
+                        .get("orange", {})
+                        .get("maxBoundingBoxArea", 4000),
+                        default_params.get("coneDetection", {})
+                        .get("orange", {})
+                        .get("maxBoundingBoxArea", 4000),
+                    ),
                 )
                 orange_v_threshold = gr.Slider(
                     0,
                     200,
-                    value=params.get("coneDetection", {})
+                    value=current_params.get("coneDetection", {})
                     .get("orange", {})
                     .get("verticalMergeThreshold", 100),
                     step=5,
                     label="Vertical Threshold",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("coneDetection", {})
+                        .get("orange", {})
+                        .get("verticalMergeThreshold", 100),
+                        default_params.get("coneDetection", {})
+                        .get("orange", {})
+                        .get("verticalMergeThreshold", 100),
+                    ),
                 )
+            with gr.Row():
                 orange_h_threshold = gr.Slider(
                     0,
                     50,
-                    value=params.get("coneDetection", {})
+                    value=current_params.get("coneDetection", {})
                     .get("orange", {})
                     .get("horizontalMergeThreshold", 10),
                     step=1,
                     label="Horizontal Threshold",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("coneDetection", {})
+                        .get("orange", {})
+                        .get("horizontalMergeThreshold", 10),
+                        default_params.get("coneDetection", {})
+                        .get("orange", {})
+                        .get("horizontalMergeThreshold", 10),
+                    ),
                 )
                 orange_keep_n = gr.Slider(
                     1,
                     10,
-                    value=params.get("coneDetection", {}).get("orange", {}).get("keepClosestN", 2),
+                    value=current_params.get("coneDetection", {})
+                    .get("orange", {})
+                    .get("keepClosestN", 2),
                     step=1,
                     label="Keep Closest N",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("coneDetection", {})
+                        .get("orange", {})
+                        .get("keepClosestN", 2),
+                        default_params.get("coneDetection", {})
+                        .get("orange", {})
+                        .get("keepClosestN", 2),
+                    ),
                 )
 
-            gr.Markdown("#### Blue/Yellow Cone Specific")
+        with gr.Accordion("Blue/Yellow Cone Specific", open=False):
             with gr.Row():
                 blue_v_threshold = gr.Slider(
                     0,
                     100,
-                    value=params.get("coneDetection", {})
+                    value=current_params.get("coneDetection", {})
                     .get("blue", {})
                     .get("verticalMergeThreshold", 20),
                     step=1,
                     label="Blue Vertical Threshold",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("coneDetection", {})
+                        .get("blue", {})
+                        .get("verticalMergeThreshold", 20),
+                        default_params.get("coneDetection", {})
+                        .get("blue", {})
+                        .get("verticalMergeThreshold", 20),
+                    ),
                 )
                 yellow_v_threshold = gr.Slider(
                     0,
                     100,
-                    value=params.get("coneDetection", {})
+                    value=current_params.get("coneDetection", {})
                     .get("yellow", {})
                     .get("verticalMergeThreshold", 20),
                     step=1,
                     label="Yellow Vertical Threshold",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("coneDetection", {})
+                        .get("yellow", {})
+                        .get("verticalMergeThreshold", 20),
+                        default_params.get("coneDetection", {})
+                        .get("yellow", {})
+                        .get("verticalMergeThreshold", 20),
+                    ),
                 )
 
-            gr.Markdown("### Road Mask (HSV Range)")
+        with gr.Accordion("Road Mask (HSV Range)", open=False):
             with gr.Row():
                 with gr.Column():
                     gr.Markdown("**Lower Bounds**")
                     road_h_lower = gr.Slider(
                         0,
                         179,
-                        value=params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[0],
+                        value=current_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[0],
                         step=1,
                         label="H Lower",
+                        elem_classes=get_slider_elem_classes(
+                            current_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[0],
+                            default_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[0],
+                        ),
                     )
                     road_s_lower = gr.Slider(
                         0,
                         255,
-                        value=params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[1],
+                        value=current_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[1],
                         step=1,
                         label="S Lower",
+                        elem_classes=get_slider_elem_classes(
+                            current_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[1],
+                            default_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[1],
+                        ),
                     )
                     road_v_lower = gr.Slider(
                         0,
                         255,
-                        value=params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[2],
+                        value=current_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[2],
                         step=1,
                         label="V Lower",
+                        elem_classes=get_slider_elem_classes(
+                            current_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[2],
+                            default_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[2],
+                        ),
                     )
                 with gr.Column():
                     gr.Markdown("**Upper Bounds**")
                     road_h_upper = gr.Slider(
                         0,
                         179,
-                        value=params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[0],
+                        value=current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[
+                            0
+                        ],
                         step=1,
                         label="H Upper",
+                        elem_classes=get_slider_elem_classes(
+                            current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[0],
+                            default_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[0],
+                        ),
                     )
                     road_s_upper = gr.Slider(
                         0,
                         255,
-                        value=params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[1],
+                        value=current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[
+                            1
+                        ],
                         step=1,
                         label="S Upper",
+                        elem_classes=get_slider_elem_classes(
+                            current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[1],
+                            default_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[1],
+                        ),
                     )
                     road_v_upper = gr.Slider(
                         0,
                         255,
-                        value=params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[2],
+                        value=current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[
+                            2
+                        ],
                         step=1,
                         label="V Upper",
+                        elem_classes=get_slider_elem_classes(
+                            current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[2],
+                            default_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[2],
+                        ),
                     )
 
-            gr.Markdown("### Track Drawing Parameters")
+        with gr.Accordion("Track Drawing Parameters", open=False):
             with gr.Row():
                 max_cone_dist = gr.Slider(
                     50,
                     500,
-                    value=params.get("trackDrawing", {}).get("maxConeDistance", 150),
+                    value=current_params.get("trackDrawing", {}).get("maxConeDistance", 150),
                     step=10,
                     label="Max Cone Distance",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("trackDrawing", {}).get("maxConeDistance", 150),
+                        default_params.get("trackDrawing", {}).get("maxConeDistance", 150),
+                    ),
                 )
                 vertical_penalty = gr.Slider(
                     1.0,
                     10.0,
-                    value=params.get("trackDrawing", {}).get("verticalPenaltyFactor", 3.5),
+                    value=current_params.get("trackDrawing", {}).get("verticalPenaltyFactor", 3.5),
                     step=0.1,
                     label="Vertical Penalty Factor",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("trackDrawing", {}).get("verticalPenaltyFactor", 3.5),
+                        default_params.get("trackDrawing", {}).get("verticalPenaltyFactor", 3.5),
+                    ),
                 )
 
-            gr.Markdown("### Odometry Parameters")
-            gr.Markdown("#### Camera Intrinsics")
+        with gr.Accordion("Odometry Parameters", open=False):
+            gr.Markdown("**Camera Intrinsics**")
             with gr.Row():
                 fx = gr.Number(
-                    value=params.get("odometry", {}).get("cameraIntrinsics", {}).get("fx", 387.35),
+                    value=current_params.get("odometry", {})
+                    .get("cameraIntrinsics", {})
+                    .get("fx", 387.35),
                     label="Focal Length X (fx)",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("odometry", {})
+                        .get("cameraIntrinsics", {})
+                        .get("fx", 387.35),
+                        default_params.get("odometry", {})
+                        .get("cameraIntrinsics", {})
+                        .get("fx", 387.35),
+                    ),
                 )
                 fy = gr.Number(
-                    value=params.get("odometry", {}).get("cameraIntrinsics", {}).get("fy", 387.35),
+                    value=current_params.get("odometry", {})
+                    .get("cameraIntrinsics", {})
+                    .get("fy", 387.35),
                     label="Focal Length Y (fy)",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("odometry", {})
+                        .get("cameraIntrinsics", {})
+                        .get("fy", 387.35),
+                        default_params.get("odometry", {})
+                        .get("cameraIntrinsics", {})
+                        .get("fy", 387.35),
+                    ),
                 )
+            with gr.Row():
                 cx = gr.Number(
-                    value=params.get("odometry", {}).get("cameraIntrinsics", {}).get("cx", 317.77),
+                    value=current_params.get("odometry", {})
+                    .get("cameraIntrinsics", {})
+                    .get("cx", 317.77),
                     label="Principal Point X (cx)",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("odometry", {})
+                        .get("cameraIntrinsics", {})
+                        .get("cx", 317.77),
+                        default_params.get("odometry", {})
+                        .get("cameraIntrinsics", {})
+                        .get("cx", 317.77),
+                    ),
                 )
                 cy = gr.Number(
-                    value=params.get("odometry", {}).get("cameraIntrinsics", {}).get("cy", 242.49),
+                    value=current_params.get("odometry", {})
+                    .get("cameraIntrinsics", {})
+                    .get("cy", 242.49),
                     label="Principal Point Y (cy)",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("odometry", {})
+                        .get("cameraIntrinsics", {})
+                        .get("cy", 242.49),
+                        default_params.get("odometry", {})
+                        .get("cameraIntrinsics", {})
+                        .get("cy", 242.49),
+                    ),
                 )
 
-            gr.Markdown("#### RANSAC Parameters")
+            gr.Markdown("**RANSAC Parameters**")
             with gr.Row():
                 ransac_conf = gr.Slider(
                     0.9,
                     0.9999,
-                    value=params.get("odometry", {}).get("ransacConfidence", 0.999),
+                    value=current_params.get("odometry", {}).get("ransacConfidence", 0.999),
                     step=0.0001,
                     label="RANSAC Confidence",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("odometry", {}).get("ransacConfidence", 0.999),
+                        default_params.get("odometry", {}).get("ransacConfidence", 0.999),
+                    ),
                 )
                 ransac_thresh = gr.Slider(
                     0.1,
                     5.0,
-                    value=params.get("odometry", {}).get("ransacThreshold", 1.0),
+                    value=current_params.get("odometry", {}).get("ransacThreshold", 1.0),
                     step=0.1,
                     label="RANSAC Threshold",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("odometry", {}).get("ransacThreshold", 1.0),
+                        default_params.get("odometry", {}).get("ransacThreshold", 1.0),
+                    ),
                 )
 
-            gr.Markdown("#### Feature Matching")
+            gr.Markdown("**Feature Matching**")
             with gr.Row():
                 match_dist_mult = gr.Slider(
                     1.0,
                     5.0,
-                    value=params.get("odometry", {}).get("matchDistanceMultiplier", 2.0),
+                    value=current_params.get("odometry", {}).get("matchDistanceMultiplier", 2.0),
                     step=0.1,
                     label="Match Distance Multiplier",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("odometry", {}).get("matchDistanceMultiplier", 2.0),
+                        default_params.get("odometry", {}).get("matchDistanceMultiplier", 2.0),
+                    ),
                 )
                 match_dist_min = gr.Slider(
                     10.0,
                     100.0,
-                    value=params.get("odometry", {}).get("matchDistanceMinimum", 30.0),
+                    value=current_params.get("odometry", {}).get("matchDistanceMinimum", 30.0),
                     step=1.0,
                     label="Match Distance Minimum",
+                    elem_classes=get_slider_elem_classes(
+                        current_params.get("odometry", {}).get("matchDistanceMinimum", 30.0),
+                        default_params.get("odometry", {}).get("matchDistanceMinimum", 30.0),
+                    ),
                 )
 
-            gr.Markdown("---")
-            with gr.Row():
-                save_btn = gr.Button("💾 Save Parameters", variant="primary", size="lg")
-                restore_btn = gr.Button("🔄 Restore Defaults", variant="secondary", size="lg")
-            save_status = gr.Textbox(label="Status")
+    # Results page
+    with gr.Column(visible=False) as results_page:
+        gr.Markdown("### Pipeline Results")
 
-            # Save button handler
-            save_btn.click(
-                fn=update_params,
-                inputs=[
-                    erosion_iter,
-                    dilation_iter,
-                    morph_kernel,
-                    min_area,
-                    max_area,
-                    v_threshold,
-                    h_threshold,
-                    orange_max_area,
-                    orange_v_threshold,
-                    orange_h_threshold,
-                    orange_keep_n,
-                    blue_v_threshold,
-                    yellow_v_threshold,
-                    road_h_lower,
-                    road_s_lower,
-                    road_v_lower,
-                    road_h_upper,
-                    road_s_upper,
-                    road_v_upper,
-                    max_cone_dist,
-                    vertical_penalty,
-                    fx,
-                    fy,
-                    cx,
-                    cy,
-                    ransac_conf,
-                    ransac_thresh,
-                    match_dist_mult,
-                    match_dist_min,
-                ],
-                outputs=[save_status],
+        pipeline_output = gr.Textbox(label="Pipeline Output", lines=6)
+        with gr.Row():
+            result_cones_img = gr.Image(
+                label="🔵 Cone Detection + Track Lines", type="pil", height=350
             )
+            result_odometry_img = gr.Image(label="🎯 Odometry Matches", type="pil", height=350)
+        result_json = gr.File(label="📥 Download Detected Cones (JSON)", interactive=False)
 
-            # Restore defaults button handler
-            restore_btn.click(
-                fn=restore_defaults,
-                outputs=[
-                    erosion_iter,
-                    dilation_iter,
-                    morph_kernel,
-                    min_area,
-                    max_area,
-                    v_threshold,
-                    h_threshold,
-                    orange_max_area,
-                    orange_v_threshold,
-                    orange_h_threshold,
-                    orange_keep_n,
-                    blue_v_threshold,
-                    yellow_v_threshold,
-                    road_h_lower,
-                    road_s_lower,
-                    road_v_lower,
-                    road_h_upper,
-                    road_s_upper,
-                    road_v_upper,
-                    max_cone_dist,
-                    vertical_penalty,
-                    fx,
-                    fy,
-                    cx,
-                    cy,
-                    ransac_conf,
-                    ransac_thresh,
-                    match_dist_mult,
-                    match_dist_min,
-                    save_status,
-                ],
-            )
+        gr.Markdown("---")
+        restart_btn = gr.Button("▶️ Start Pipeline", variant="primary", size="lg")
 
-        # Documentation tab
-        with gr.Tab("📖 Documentation"):
-            gr.Markdown("""
-            ## Driverless Vision Pipeline
-            
-            This interface provides interactive control over a modular computer vision pipeline for autonomous vehicles.
-            
-            ### Pipeline Steps
-            
-            1. **Detect Cones**: Identifies orange, blue, and yellow cones using color masking
-            2. **Draw Tracks**: Connects detected cones to visualize the track boundaries
-            3. **Calculate Odometry**: Computes rotation and translation between consecutive frames
-            
-            ### Using the Interface
-            
-            1. **Run Pipeline Tab**: Execute individual steps or the complete pipeline
-            2. **Configure Parameters Tab**: Adjust detection, tracking, and odometry parameters
-            3. Save parameters and re-run the pipeline to see the effects
-            
-            ### Parameter Guide
-            
-            - **Color Detection**: Controls morphological operations for noise reduction
-            - **Cone Identification**: Defines area thresholds and merging behavior
-            - **Road Mask**: HSV color range to filter road pixels
-            - **Track Drawing**: Controls how cones are connected
-            - **Odometry**: Camera calibration and feature matching parameters
-            
-            ### Tips
-            
-            - Start with small parameter changes and observe the results
-            - Use Step 1 alone to tune cone detection
-            - Orange cones have special handling (typically fewer, used as markers)
-            - Camera intrinsics should match your camera's calibration
-            """)
+    # Navigation handlers
+    def show_config_page():
+        return gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
+
+    def show_landing_page():
+        return gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
+
+    start_btn.click(
+        fn=show_config_page,
+        outputs=[landing_page, config_page, results_page],
+    )
+
+    restart_btn.click(
+        fn=show_config_page,
+        outputs=[landing_page, config_page, results_page],
+    )
+
+    # Run pipeline button handler
+    run_pipeline_btn.click(
+        fn=save_and_run_pipeline,
+        inputs=[
+            erosion_iter,
+            dilation_iter,
+            morph_kernel,
+            min_area,
+            max_area,
+            v_threshold,
+            h_threshold,
+            orange_max_area,
+            orange_v_threshold,
+            orange_h_threshold,
+            orange_keep_n,
+            blue_v_threshold,
+            yellow_v_threshold,
+            road_h_lower,
+            road_s_lower,
+            road_v_lower,
+            road_h_upper,
+            road_s_upper,
+            road_v_upper,
+            max_cone_dist,
+            vertical_penalty,
+            fx,
+            fy,
+            cx,
+            cy,
+            ransac_conf,
+            ransac_thresh,
+            match_dist_mult,
+            match_dist_min,
+        ],
+        outputs=[
+            pipeline_output,
+            result_cones_img,
+            result_odometry_img,
+            result_json,
+            config_page,
+            results_page,
+        ],
+    )
+
+    # Restore defaults button handler
+    restore_btn.click(
+        fn=restore_defaults,
+        outputs=[
+            erosion_iter,
+            dilation_iter,
+            morph_kernel,
+            min_area,
+            max_area,
+            v_threshold,
+            h_threshold,
+            orange_max_area,
+            orange_v_threshold,
+            orange_h_threshold,
+            orange_keep_n,
+            blue_v_threshold,
+            yellow_v_threshold,
+            road_h_lower,
+            road_s_lower,
+            road_v_lower,
+            road_h_upper,
+            road_s_upper,
+            road_v_upper,
+            max_cone_dist,
+            vertical_penalty,
+            fx,
+            fy,
+            cx,
+            cy,
+            ransac_conf,
+            ransac_thresh,
+            match_dist_mult,
+            match_dist_min,
+            status_msg,
+        ],
+    )
 
 if __name__ == "__main__":
     import os
