@@ -1,9 +1,10 @@
 #include "../include/detection.hpp"
+#include "../include/params.hpp"
 
 #define SHOW_COLOUR_MASKS
 #define SHOW_DETECTED_CONES
 
-cv::Mat detectColour(const cv::Mat &image, ColourMaskConfig cfg, const cv::Mat &negMask, bool dilate, bool erode)
+cv::Mat detectColour(const cv::Mat &image, ColourMaskConfig cfg, const cv::Mat &negMask, bool dilate, bool erode, const ColorDetectionParams &params)
 {
     cv::Mat retMask = cv::Mat::zeros(image.size(), CV_8UC1);
 
@@ -19,13 +20,13 @@ cv::Mat detectColour(const cv::Mat &image, ColourMaskConfig cfg, const cv::Mat &
     cv::bitwise_and(retMask, ~negMask, retMask);
 
     if (erode)
-        cv::erode(retMask, retMask, cv::Mat(), cv::Point(-1, -1), 1);
+        cv::erode(retMask, retMask, cv::Mat(), cv::Point(-1, -1), params.erosionIterations);
 
     if (dilate)
-        cv::dilate(retMask, retMask, cv::Mat(), cv::Point(-1, -1), 2);
+        cv::dilate(retMask, retMask, cv::Mat(), cv::Point(-1, -1), params.dilationIterations);
 
     // Morphological operations to clean up the mask
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2, 2));
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(params.morphKernelSize, params.morphKernelSize));
 
     cv::morphologyEx(retMask, retMask, cv::MORPH_CLOSE, kernel);
     cv::morphologyEx(retMask, retMask, cv::MORPH_OPEN, kernel);
@@ -33,7 +34,7 @@ cv::Mat detectColour(const cv::Mat &image, ColourMaskConfig cfg, const cv::Mat &
     return retMask;
 }
 
-std::vector<Cone> identifyCones(const cv::Mat &mask, const cv::Mat &image, int vThreshold, int hThreshold, int maxArea)
+std::vector<Cone> identifyCones(const cv::Mat &mask, const cv::Mat &image, int vThreshold, int hThreshold, int maxArea, int minArea)
 {
     std::vector<Cone> detectedParts;
     auto img = image.clone();
@@ -46,7 +47,7 @@ std::vector<Cone> identifyCones(const cv::Mat &mask, const cv::Mat &image, int v
         cv::Rect boundingBox = cv::boundingRect(contour);
 
         // If the bounding box is too small or big, skip
-        if (boundingBox.area() < 20 || boundingBox.area() > maxArea)
+        if (boundingBox.area() < minArea || boundingBox.area() > maxArea)
         {
             std::cout << "\tDiscarding contour with area: " << boundingBox.area() << std::endl;
             continue;

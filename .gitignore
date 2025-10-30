@@ -48,5 +48,24 @@ CMakeCache.txt
 build/
 bin/
 
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
 # IDE files
 .vscode/
+.idea/
+
+# Archive (legacy files kept for reference)
+archive/
+
+# Temporary files
+*.log
+.DS_Store
+
+# Output files
+output/

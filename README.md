@@ -38,3 +38,36 @@ I opted for just ordering the point by distance, then penalising the vertical di
 
 ### Task 5: Calculate rotation and translation from frame1 to frame2
 Just using ORB as suggested into brute force matching, not much to say here. This is the part that could be improved the most, ideally by working on a better matching logic (will maybe have the time for it this afternoon)
+
+## Parameter Configuration System
+
+The pipeline supports configurable parameters via JSON configuration files. This allows fine-tuning of detection, tracking, and odometry without recompiling the C++ code.
+
+## Docker (Production Setup)
+For production deployment with proper frontend/backend separation:
+
+```bash
+docker compose up -d --build
+```
+
+This will start:
+- **Backend service**: C++ pipeline executable (isolated)
+- **Frontend service**: Gradio web interface on port 7860
+
+Access the interface at **http://localhost:7860**
+
+The services are connected via a shared network, with volumes mounted for:
+- `./output` - Pipeline results
+- `./data` - Input data
+- `./config` - Parameter configuration
+
+To view logs:
+```bash
+docker compose logs -f frontend
+docker compose logs -f backend
+```
+
+To stop:
+```bash
+docker compose down
+```

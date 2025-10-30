@@ -1,7 +1,7 @@
 #include "../include/track.hpp"
 #include "../include/detection.hpp"
 
-cv::Mat connectCones(const cv::Mat &image, std::vector<Cone> &cones, cv::Scalar lineColor, int maxDistance)
+cv::Mat connectCones(const cv::Mat &image, std::vector<Cone> &cones, cv::Scalar lineColor, int maxDistance, float verticalPenaltyFactor)
 {
     cv::Mat output;
     image.copyTo(output);
@@ -22,24 +22,21 @@ cv::Mat connectCones(const cv::Mat &image, std::vector<Cone> &cones, cv::Scalar 
 
     std::vector<Cone> trackEdgeCones;
 
-    // Will obviously need tuning
-    float VERTICAL_PENALTY_FACTOR = 3.5f;
-
     while (!remainingCones.empty())
     {
         // Find the next closest cone
-        auto it = std::min_element(remainingCones.begin(), remainingCones.end(), [previousPoint, VERTICAL_PENALTY_FACTOR](const Cone &a, const Cone &b)
+        auto it = std::min_element(remainingCones.begin(), remainingCones.end(), [previousPoint, verticalPenaltyFactor](const Cone &a, const Cone &b)
                                    {
                                     // Use a combination of Euclidean distance and vertical distance
                                     // Penalizing vertical distance helps with eliminating wrong detections
                                     // This helps avoid zigzag when there's a curve on the track
                                     // Main issue with this is if we ever have a view where subsequent cones are very different in vertical distance somehow
-                                       double distA = cv::norm(a.center - previousPoint) + std::abs(a.center.y - previousPoint.y) * VERTICAL_PENALTY_FACTOR;
-                                       double distB = cv::norm(b.center - previousPoint) + std::abs(b.center.y - previousPoint.y) * VERTICAL_PENALTY_FACTOR;
+                                       double distA = cv::norm(a.center - previousPoint) + std::abs(a.center.y - previousPoint.y) * verticalPenaltyFactor;
+                                       double distB = cv::norm(b.center - previousPoint) + std::abs(b.center.y - previousPoint.y) * verticalPenaltyFactor;
                                        return distA < distB; });
 
         // If it's too far, stop
-        double distance = cv::norm(it->center - previousPoint) + std::abs(it->center.y - previousPoint.y) * VERTICAL_PENALTY_FACTOR;
+        double distance = cv::norm(it->center - previousPoint) + std::abs(it->center.y - previousPoint.y) * verticalPenaltyFactor;
         if (distance > maxDistance)
             break;
 
