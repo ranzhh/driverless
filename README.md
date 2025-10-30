@@ -1,5 +1,5 @@
 # Driverless E-Agle TRT
-This project aims to complete the tasks assigned for the E-Agle TRT recruitment challenge.
+This project aims to complete the tasks assigned for the E-Agle TRT recruitment challenge. You can find a demo at driverless <dot> ranzhh <dot> com.
 
 Some brief explanations of the choices made:
 
