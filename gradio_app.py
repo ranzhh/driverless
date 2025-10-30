@@ -26,12 +26,16 @@ def load_default_params():
 
 
 def load_current_params():
-    """Load current parameters from JSON config file."""
+    """Load current parameters. Initialize from defaults if doesn't exist."""
     if CURRENT_PARAMS_FILE.exists():
         with open(CURRENT_PARAMS_FILE, "r") as f:
             return json.load(f)
-    # If no current params exist, use defaults
-    return load_default_params()
+    else:
+        # First run - copy defaults to current
+        defaults = load_default_params()
+        if defaults:
+            save_current_params(defaults)
+        return defaults
 
 
 def save_current_params(params_dict):
@@ -39,15 +43,6 @@ def save_current_params(params_dict):
     # Ensure config directory exists
     CURRENT_PARAMS_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(CURRENT_PARAMS_FILE, "w") as f:
-        json.dump(params_dict, f, indent=2)
-    return "✅ Parameters saved successfully!"
-
-
-def save_as_config(params_dict):
-    """Save parameters to the config file used by the C++ pipeline."""
-    # Ensure config directory exists
-    DEFAULT_PARAMS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(DEFAULT_PARAMS_FILE, "w") as f:
         json.dump(params_dict, f, indent=2)
 
 
@@ -111,18 +106,6 @@ def run_pipeline(step="all"):
         )
     except Exception as e:
         return f"❌ Error: {str(e)}", None, None, None
-
-
-def compare_with_defaults(current_value, default_value):
-    """Compare current value with default to determine if it's modified."""
-    return current_value != default_value
-
-
-def get_slider_elem_classes(current_value, default_value):
-    """Return CSS classes for slider based on whether value differs from default."""
-    if compare_with_defaults(current_value, default_value):
-        return "modified-param"
-    return ""
 
 
 def restore_defaults():
@@ -258,13 +241,10 @@ def save_and_run_pipeline(
         },
     }
 
-    # Save to current params
+    # Save to current params (NEVER touch default_params.json)
     save_current_params(params)
 
-    # Save to config file used by C++ pipeline
-    save_as_config(params)
-
-    # Run the pipeline
+    # Run the pipeline (C++ will read from current_params.json)
     output, cones_img, odometry_img, json_file = run_pipeline("all")
 
     # Return all outputs for display + show results page
@@ -278,23 +258,19 @@ def save_and_run_pipeline(
     )
 
 
+# Load parameters for UI initialization
+default_params = load_default_params()
+current_params = load_current_params()
+
+
+# Helper function to check if parameter is modified
+def is_modified(current_value, default_value):
+    """Check if current value differs from default."""
+    return current_value != default_value
+
+
 # Build the Gradio interface
-with gr.Blocks(
-    title="Driverless Pipeline Controller",
-    theme=gr.themes.Soft(),
-    css="""
-    .modified-param label {
-        color: #ff8800 !important;
-        font-weight: bold !important;
-    }
-    .modified-param input[type="range"] {
-        accent-color: #ff8800 !important;
-    }
-    .modified-param input[type="number"] {
-        border-color: #ff8800 !important;
-    }
-""",
-) as app:
+with gr.Blocks(title="Driverless Pipeline Controller", theme=gr.themes.Soft()) as app:
     gr.Markdown("# 🏎️ Driverless Vision Pipeline")
     gr.Markdown(
         "Interactive parameter tuning and visualization for cone detection, tracking, and odometry"
@@ -309,7 +285,9 @@ with gr.Blocks(
     # Parameter configuration page
     with gr.Column(visible=False) as config_page:
         gr.Markdown("### Configure Pipeline Parameters")
-        gr.Markdown("*Parameters shown in orange are different from default values*")
+        gr.Markdown(
+            "*Modified parameters are shown in **orange** - note: color updates on page reload*"
+        )
 
         with gr.Row():
             run_pipeline_btn = gr.Button("▶️ Run", variant="primary", size="lg")
@@ -320,96 +298,121 @@ with gr.Blocks(
         gr.Markdown("---")
         gr.Markdown("### Parameters")
 
-        # Load current and default params
-        current_params = load_current_params()
-        default_params = load_default_params()
-
         gr.Markdown("#### Color Detection")
         with gr.Row():
+            erosion_label = "Erosion Iterations"
+            if is_modified(
+                current_params.get("colorDetection", {}).get("erosionIterations", 1),
+                default_params.get("colorDetection", {}).get("erosionIterations", 1),
+            ):
+                erosion_label = "🔶 " + erosion_label
             erosion_iter = gr.Slider(
                 0,
                 5,
                 value=current_params.get("colorDetection", {}).get("erosionIterations", 1),
                 step=1,
-                label="Erosion Iterations",
-                elem_classes=get_slider_elem_classes(
-                    current_params.get("colorDetection", {}).get("erosionIterations", 1),
-                    default_params.get("colorDetection", {}).get("erosionIterations", 1),
-                ),
+                label=erosion_label,
             )
+
+            dilation_label = "Dilation Iterations"
+            if is_modified(
+                current_params.get("colorDetection", {}).get("dilationIterations", 2),
+                default_params.get("colorDetection", {}).get("dilationIterations", 2),
+            ):
+                dilation_label = "🔶 " + dilation_label
             dilation_iter = gr.Slider(
                 0,
                 5,
                 value=current_params.get("colorDetection", {}).get("dilationIterations", 2),
                 step=1,
-                label="Dilation Iterations",
-                elem_classes=get_slider_elem_classes(
-                    current_params.get("colorDetection", {}).get("dilationIterations", 2),
-                    default_params.get("colorDetection", {}).get("dilationIterations", 2),
-                ),
+                label=dilation_label,
             )
+
+            morph_label = "Morphological Kernel Size"
+            if is_modified(
+                current_params.get("colorDetection", {}).get("morphKernelSize", 2),
+                default_params.get("colorDetection", {}).get("morphKernelSize", 2),
+            ):
+                morph_label = "🔶 " + morph_label
             morph_kernel = gr.Slider(
                 1,
                 7,
                 value=current_params.get("colorDetection", {}).get("morphKernelSize", 2),
                 step=1,
-                label="Morphological Kernel Size",
-                elem_classes=get_slider_elem_classes(
-                    current_params.get("colorDetection", {}).get("morphKernelSize", 2),
-                    default_params.get("colorDetection", {}).get("morphKernelSize", 2),
-                ),
+                label=morph_label,
             )
 
         gr.Markdown("#### Cone Identification")
         with gr.Row():
+            min_area_label = "Min Bounding Box Area"
+            if is_modified(
+                current_params.get("coneDetection", {}).get("minBoundingBoxArea", 20),
+                default_params.get("coneDetection", {}).get("minBoundingBoxArea", 20),
+            ):
+                min_area_label = "🔶 " + min_area_label
             min_area = gr.Slider(
                 0,
                 100,
                 value=current_params.get("coneDetection", {}).get("minBoundingBoxArea", 20),
                 step=1,
-                label="Min Bounding Box Area",
-                elem_classes=get_slider_elem_classes(
-                    current_params.get("coneDetection", {}).get("minBoundingBoxArea", 20),
-                    default_params.get("coneDetection", {}).get("minBoundingBoxArea", 20),
-                ),
+                label=min_area_label,
             )
+
+            max_area_label = "Max Bounding Box Area"
+            if is_modified(
+                current_params.get("coneDetection", {}).get("maxBoundingBoxArea", 4000),
+                default_params.get("coneDetection", {}).get("maxBoundingBoxArea", 4000),
+            ):
+                max_area_label = "🔶 " + max_area_label
             max_area = gr.Slider(
                 100,
                 10000,
                 value=current_params.get("coneDetection", {}).get("maxBoundingBoxArea", 4000),
                 step=100,
-                label="Max Bounding Box Area",
-                elem_classes=get_slider_elem_classes(
-                    current_params.get("coneDetection", {}).get("maxBoundingBoxArea", 4000),
-                    default_params.get("coneDetection", {}).get("maxBoundingBoxArea", 4000),
-                ),
+                label=max_area_label,
             )
+
         with gr.Row():
+            v_thresh_label = "Vertical Merge Threshold"
+            if is_modified(
+                current_params.get("coneDetection", {}).get("verticalMergeThreshold", 20),
+                default_params.get("coneDetection", {}).get("verticalMergeThreshold", 20),
+            ):
+                v_thresh_label = "🔶 " + v_thresh_label
             v_threshold = gr.Slider(
                 0,
                 100,
                 value=current_params.get("coneDetection", {}).get("verticalMergeThreshold", 20),
                 step=1,
-                label="Vertical Merge Threshold",
-                elem_classes=get_slider_elem_classes(
-                    current_params.get("coneDetection", {}).get("verticalMergeThreshold", 20),
-                    default_params.get("coneDetection", {}).get("verticalMergeThreshold", 20),
-                ),
+                label=v_thresh_label,
             )
+
+            h_thresh_label = "Horizontal Merge Threshold"
+            if is_modified(
+                current_params.get("coneDetection", {}).get("horizontalMergeThreshold", 10),
+                default_params.get("coneDetection", {}).get("horizontalMergeThreshold", 10),
+            ):
+                h_thresh_label = "🔶 " + h_thresh_label
             h_threshold = gr.Slider(
                 0,
                 50,
                 value=current_params.get("coneDetection", {}).get("horizontalMergeThreshold", 10),
                 step=1,
-                label="Horizontal Merge Threshold",
-                elem_classes=get_slider_elem_classes(
-                    current_params.get("coneDetection", {}).get("horizontalMergeThreshold", 10),
-                    default_params.get("coneDetection", {}).get("horizontalMergeThreshold", 10),
-                ),
+                label=h_thresh_label,
             )
 
         with gr.Accordion("Orange Cone Specific", open=False):
             with gr.Row():
+                orange_max_label = "Max Area"
+                if is_modified(
+                    current_params.get("coneDetection", {})
+                    .get("orange", {})
+                    .get("maxBoundingBoxArea", 4000),
+                    default_params.get("coneDetection", {})
+                    .get("orange", {})
+                    .get("maxBoundingBoxArea", 4000),
+                ):
+                    orange_max_label = "🔶 " + orange_max_label
                 orange_max_area = gr.Slider(
                     100,
                     10000,
@@ -417,16 +420,19 @@ with gr.Blocks(
                     .get("orange", {})
                     .get("maxBoundingBoxArea", 4000),
                     step=100,
-                    label="Max Area",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("coneDetection", {})
-                        .get("orange", {})
-                        .get("maxBoundingBoxArea", 4000),
-                        default_params.get("coneDetection", {})
-                        .get("orange", {})
-                        .get("maxBoundingBoxArea", 4000),
-                    ),
+                    label=orange_max_label,
                 )
+
+                orange_v_label = "Vertical Threshold"
+                if is_modified(
+                    current_params.get("coneDetection", {})
+                    .get("orange", {})
+                    .get("verticalMergeThreshold", 100),
+                    default_params.get("coneDetection", {})
+                    .get("orange", {})
+                    .get("verticalMergeThreshold", 100),
+                ):
+                    orange_v_label = "🔶 " + orange_v_label
                 orange_v_threshold = gr.Slider(
                     0,
                     200,
@@ -434,17 +440,20 @@ with gr.Blocks(
                     .get("orange", {})
                     .get("verticalMergeThreshold", 100),
                     step=5,
-                    label="Vertical Threshold",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("coneDetection", {})
-                        .get("orange", {})
-                        .get("verticalMergeThreshold", 100),
-                        default_params.get("coneDetection", {})
-                        .get("orange", {})
-                        .get("verticalMergeThreshold", 100),
-                    ),
+                    label=orange_v_label,
                 )
+
             with gr.Row():
+                orange_h_label = "Horizontal Threshold"
+                if is_modified(
+                    current_params.get("coneDetection", {})
+                    .get("orange", {})
+                    .get("horizontalMergeThreshold", 10),
+                    default_params.get("coneDetection", {})
+                    .get("orange", {})
+                    .get("horizontalMergeThreshold", 10),
+                ):
+                    orange_h_label = "🔶 " + orange_h_label
                 orange_h_threshold = gr.Slider(
                     0,
                     50,
@@ -452,16 +461,15 @@ with gr.Blocks(
                     .get("orange", {})
                     .get("horizontalMergeThreshold", 10),
                     step=1,
-                    label="Horizontal Threshold",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("coneDetection", {})
-                        .get("orange", {})
-                        .get("horizontalMergeThreshold", 10),
-                        default_params.get("coneDetection", {})
-                        .get("orange", {})
-                        .get("horizontalMergeThreshold", 10),
-                    ),
+                    label=orange_h_label,
                 )
+
+                orange_keep_label = "Keep Closest N"
+                if is_modified(
+                    current_params.get("coneDetection", {}).get("orange", {}).get("keepClosestN", 2),
+                    default_params.get("coneDetection", {}).get("orange", {}).get("keepClosestN", 2),
+                ):
+                    orange_keep_label = "🔶 " + orange_keep_label
                 orange_keep_n = gr.Slider(
                     1,
                     10,
@@ -469,19 +477,21 @@ with gr.Blocks(
                     .get("orange", {})
                     .get("keepClosestN", 2),
                     step=1,
-                    label="Keep Closest N",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("coneDetection", {})
-                        .get("orange", {})
-                        .get("keepClosestN", 2),
-                        default_params.get("coneDetection", {})
-                        .get("orange", {})
-                        .get("keepClosestN", 2),
-                    ),
+                    label=orange_keep_label,
                 )
 
         with gr.Accordion("Blue/Yellow Cone Specific", open=False):
             with gr.Row():
+                blue_v_label = "Blue Vertical Threshold"
+                if is_modified(
+                    current_params.get("coneDetection", {})
+                    .get("blue", {})
+                    .get("verticalMergeThreshold", 20),
+                    default_params.get("coneDetection", {})
+                    .get("blue", {})
+                    .get("verticalMergeThreshold", 20),
+                ):
+                    blue_v_label = "🔶 " + blue_v_label
                 blue_v_threshold = gr.Slider(
                     0,
                     100,
@@ -489,16 +499,19 @@ with gr.Blocks(
                     .get("blue", {})
                     .get("verticalMergeThreshold", 20),
                     step=1,
-                    label="Blue Vertical Threshold",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("coneDetection", {})
-                        .get("blue", {})
-                        .get("verticalMergeThreshold", 20),
-                        default_params.get("coneDetection", {})
-                        .get("blue", {})
-                        .get("verticalMergeThreshold", 20),
-                    ),
+                    label=blue_v_label,
                 )
+
+                yellow_v_label = "Yellow Vertical Threshold"
+                if is_modified(
+                    current_params.get("coneDetection", {})
+                    .get("yellow", {})
+                    .get("verticalMergeThreshold", 20),
+                    default_params.get("coneDetection", {})
+                    .get("yellow", {})
+                    .get("verticalMergeThreshold", 20),
+                ):
+                    yellow_v_label = "🔶 " + yellow_v_label
                 yellow_v_threshold = gr.Slider(
                     0,
                     100,
@@ -506,237 +519,265 @@ with gr.Blocks(
                     .get("yellow", {})
                     .get("verticalMergeThreshold", 20),
                     step=1,
-                    label="Yellow Vertical Threshold",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("coneDetection", {})
-                        .get("yellow", {})
-                        .get("verticalMergeThreshold", 20),
-                        default_params.get("coneDetection", {})
-                        .get("yellow", {})
-                        .get("verticalMergeThreshold", 20),
-                    ),
+                    label=yellow_v_label,
                 )
 
         with gr.Accordion("Road Mask (HSV Range)", open=False):
             with gr.Row():
                 with gr.Column():
                     gr.Markdown("**Lower Bounds**")
+                    h_lower_label = "H Lower"
+                    if is_modified(
+                        current_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[0],
+                        default_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[0],
+                    ):
+                        h_lower_label = "🔶 " + h_lower_label
                     road_h_lower = gr.Slider(
                         0,
                         179,
                         value=current_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[0],
                         step=1,
-                        label="H Lower",
-                        elem_classes=get_slider_elem_classes(
-                            current_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[0],
-                            default_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[0],
-                        ),
+                        label=h_lower_label,
                     )
+
+                    s_lower_label = "S Lower"
+                    if is_modified(
+                        current_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[1],
+                        default_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[1],
+                    ):
+                        s_lower_label = "🔶 " + s_lower_label
                     road_s_lower = gr.Slider(
                         0,
                         255,
                         value=current_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[1],
                         step=1,
-                        label="S Lower",
-                        elem_classes=get_slider_elem_classes(
-                            current_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[1],
-                            default_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[1],
-                        ),
+                        label=s_lower_label,
                     )
+
+                    v_lower_label = "V Lower"
+                    if is_modified(
+                        current_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[2],
+                        default_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[2],
+                    ):
+                        v_lower_label = "🔶 " + v_lower_label
                     road_v_lower = gr.Slider(
                         0,
                         255,
                         value=current_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[2],
                         step=1,
-                        label="V Lower",
-                        elem_classes=get_slider_elem_classes(
-                            current_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[2],
-                            default_params.get("roadMask", {}).get("hsvLower", [0, 0, 0])[2],
-                        ),
+                        label=v_lower_label,
                     )
+
                 with gr.Column():
                     gr.Markdown("**Upper Bounds**")
+                    h_upper_label = "H Upper"
+                    if is_modified(
+                        current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[0],
+                        default_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[0],
+                    ):
+                        h_upper_label = "🔶 " + h_upper_label
                     road_h_upper = gr.Slider(
                         0,
                         179,
-                        value=current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[
-                            0
-                        ],
+                        value=current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[0],
                         step=1,
-                        label="H Upper",
-                        elem_classes=get_slider_elem_classes(
-                            current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[0],
-                            default_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[0],
-                        ),
+                        label=h_upper_label,
                     )
+
+                    s_upper_label = "S Upper"
+                    if is_modified(
+                        current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[1],
+                        default_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[1],
+                    ):
+                        s_upper_label = "🔶 " + s_upper_label
                     road_s_upper = gr.Slider(
                         0,
                         255,
-                        value=current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[
-                            1
-                        ],
+                        value=current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[1],
                         step=1,
-                        label="S Upper",
-                        elem_classes=get_slider_elem_classes(
-                            current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[1],
-                            default_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[1],
-                        ),
+                        label=s_upper_label,
                     )
+
+                    v_upper_label = "V Upper"
+                    if is_modified(
+                        current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[2],
+                        default_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[2],
+                    ):
+                        v_upper_label = "🔶 " + v_upper_label
                     road_v_upper = gr.Slider(
                         0,
                         255,
-                        value=current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[
-                            2
-                        ],
+                        value=current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[2],
                         step=1,
-                        label="V Upper",
-                        elem_classes=get_slider_elem_classes(
-                            current_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[2],
-                            default_params.get("roadMask", {}).get("hsvUpper", [179, 70, 190])[2],
-                        ),
+                        label=v_upper_label,
                     )
 
         with gr.Accordion("Track Drawing Parameters", open=False):
             with gr.Row():
+                max_cone_label = "Max Cone Distance"
+                if is_modified(
+                    current_params.get("trackDrawing", {}).get("maxConeDistance", 150),
+                    default_params.get("trackDrawing", {}).get("maxConeDistance", 150),
+                ):
+                    max_cone_label = "🔶 " + max_cone_label
                 max_cone_dist = gr.Slider(
                     50,
                     500,
                     value=current_params.get("trackDrawing", {}).get("maxConeDistance", 150),
                     step=10,
-                    label="Max Cone Distance",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("trackDrawing", {}).get("maxConeDistance", 150),
-                        default_params.get("trackDrawing", {}).get("maxConeDistance", 150),
-                    ),
+                    label=max_cone_label,
                 )
+
+                vert_penalty_label = "Vertical Penalty Factor"
+                if is_modified(
+                    current_params.get("trackDrawing", {}).get("verticalPenaltyFactor", 3.5),
+                    default_params.get("trackDrawing", {}).get("verticalPenaltyFactor", 3.5),
+                ):
+                    vert_penalty_label = "🔶 " + vert_penalty_label
                 vertical_penalty = gr.Slider(
                     1.0,
                     10.0,
                     value=current_params.get("trackDrawing", {}).get("verticalPenaltyFactor", 3.5),
                     step=0.1,
-                    label="Vertical Penalty Factor",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("trackDrawing", {}).get("verticalPenaltyFactor", 3.5),
-                        default_params.get("trackDrawing", {}).get("verticalPenaltyFactor", 3.5),
-                    ),
+                    label=vert_penalty_label,
                 )
 
         with gr.Accordion("Odometry Parameters", open=False):
             gr.Markdown("**Camera Intrinsics**")
             with gr.Row():
+                fx_label = "Focal Length X (fx)"
+                if is_modified(
+                    current_params.get("odometry", {})
+                    .get("cameraIntrinsics", {})
+                    .get("fx", 387.35),
+                    default_params.get("odometry", {})
+                    .get("cameraIntrinsics", {})
+                    .get("fx", 387.35),
+                ):
+                    fx_label = "🔶 " + fx_label
                 fx = gr.Number(
                     value=current_params.get("odometry", {})
                     .get("cameraIntrinsics", {})
                     .get("fx", 387.35),
-                    label="Focal Length X (fx)",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("odometry", {})
-                        .get("cameraIntrinsics", {})
-                        .get("fx", 387.35),
-                        default_params.get("odometry", {})
-                        .get("cameraIntrinsics", {})
-                        .get("fx", 387.35),
-                    ),
+                    label=fx_label,
                 )
+
+                fy_label = "Focal Length Y (fy)"
+                if is_modified(
+                    current_params.get("odometry", {})
+                    .get("cameraIntrinsics", {})
+                    .get("fy", 387.35),
+                    default_params.get("odometry", {})
+                    .get("cameraIntrinsics", {})
+                    .get("fy", 387.35),
+                ):
+                    fy_label = "🔶 " + fy_label
                 fy = gr.Number(
                     value=current_params.get("odometry", {})
                     .get("cameraIntrinsics", {})
                     .get("fy", 387.35),
-                    label="Focal Length Y (fy)",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("odometry", {})
-                        .get("cameraIntrinsics", {})
-                        .get("fy", 387.35),
-                        default_params.get("odometry", {})
-                        .get("cameraIntrinsics", {})
-                        .get("fy", 387.35),
-                    ),
+                    label=fy_label,
                 )
+
             with gr.Row():
+                cx_label = "Principal Point X (cx)"
+                if is_modified(
+                    current_params.get("odometry", {})
+                    .get("cameraIntrinsics", {})
+                    .get("cx", 317.77),
+                    default_params.get("odometry", {})
+                    .get("cameraIntrinsics", {})
+                    .get("cx", 317.77),
+                ):
+                    cx_label = "🔶 " + cx_label
                 cx = gr.Number(
                     value=current_params.get("odometry", {})
                     .get("cameraIntrinsics", {})
                     .get("cx", 317.77),
-                    label="Principal Point X (cx)",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("odometry", {})
-                        .get("cameraIntrinsics", {})
-                        .get("cx", 317.77),
-                        default_params.get("odometry", {})
-                        .get("cameraIntrinsics", {})
-                        .get("cx", 317.77),
-                    ),
+                    label=cx_label,
                 )
+
+                cy_label = "Principal Point Y (cy)"
+                if is_modified(
+                    current_params.get("odometry", {})
+                    .get("cameraIntrinsics", {})
+                    .get("cy", 242.49),
+                    default_params.get("odometry", {})
+                    .get("cameraIntrinsics", {})
+                    .get("cy", 242.49),
+                ):
+                    cy_label = "🔶 " + cy_label
                 cy = gr.Number(
                     value=current_params.get("odometry", {})
                     .get("cameraIntrinsics", {})
                     .get("cy", 242.49),
-                    label="Principal Point Y (cy)",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("odometry", {})
-                        .get("cameraIntrinsics", {})
-                        .get("cy", 242.49),
-                        default_params.get("odometry", {})
-                        .get("cameraIntrinsics", {})
-                        .get("cy", 242.49),
-                    ),
+                    label=cy_label,
                 )
 
             gr.Markdown("**RANSAC Parameters**")
             with gr.Row():
+                ransac_conf_label = "RANSAC Confidence"
+                if is_modified(
+                    current_params.get("odometry", {}).get("ransacConfidence", 0.999),
+                    default_params.get("odometry", {}).get("ransacConfidence", 0.999),
+                ):
+                    ransac_conf_label = "🔶 " + ransac_conf_label
                 ransac_conf = gr.Slider(
                     0.9,
                     0.9999,
                     value=current_params.get("odometry", {}).get("ransacConfidence", 0.999),
                     step=0.0001,
-                    label="RANSAC Confidence",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("odometry", {}).get("ransacConfidence", 0.999),
-                        default_params.get("odometry", {}).get("ransacConfidence", 0.999),
-                    ),
+                    label=ransac_conf_label,
                 )
+
+                ransac_thresh_label = "RANSAC Threshold"
+                if is_modified(
+                    current_params.get("odometry", {}).get("ransacThreshold", 1.0),
+                    default_params.get("odometry", {}).get("ransacThreshold", 1.0),
+                ):
+                    ransac_thresh_label = "🔶 " + ransac_thresh_label
                 ransac_thresh = gr.Slider(
                     0.1,
                     5.0,
                     value=current_params.get("odometry", {}).get("ransacThreshold", 1.0),
                     step=0.1,
-                    label="RANSAC Threshold",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("odometry", {}).get("ransacThreshold", 1.0),
-                        default_params.get("odometry", {}).get("ransacThreshold", 1.0),
-                    ),
+                    label=ransac_thresh_label,
                 )
 
             gr.Markdown("**Feature Matching**")
             with gr.Row():
+                match_mult_label = "Match Distance Multiplier"
+                if is_modified(
+                    current_params.get("odometry", {}).get("matchDistanceMultiplier", 2.0),
+                    default_params.get("odometry", {}).get("matchDistanceMultiplier", 2.0),
+                ):
+                    match_mult_label = "🔶 " + match_mult_label
                 match_dist_mult = gr.Slider(
                     1.0,
                     5.0,
                     value=current_params.get("odometry", {}).get("matchDistanceMultiplier", 2.0),
                     step=0.1,
-                    label="Match Distance Multiplier",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("odometry", {}).get("matchDistanceMultiplier", 2.0),
-                        default_params.get("odometry", {}).get("matchDistanceMultiplier", 2.0),
-                    ),
+                    label=match_mult_label,
                 )
+
+                match_min_label = "Match Distance Minimum"
+                if is_modified(
+                    current_params.get("odometry", {}).get("matchDistanceMinimum", 30.0),
+                    default_params.get("odometry", {}).get("matchDistanceMinimum", 30.0),
+                ):
+                    match_min_label = "🔶 " + match_min_label
                 match_dist_min = gr.Slider(
                     10.0,
                     100.0,
                     value=current_params.get("odometry", {}).get("matchDistanceMinimum", 30.0),
                     step=1.0,
-                    label="Match Distance Minimum",
-                    elem_classes=get_slider_elem_classes(
-                        current_params.get("odometry", {}).get("matchDistanceMinimum", 30.0),
-                        default_params.get("odometry", {}).get("matchDistanceMinimum", 30.0),
-                    ),
+                    label=match_min_label,
                 )
 
     # Results page
     with gr.Column(visible=False) as results_page:
         gr.Markdown("### Pipeline Results")
 
-        pipeline_output = gr.Textbox(label="Pipeline Output", lines=6)
         with gr.Row():
             result_cones_img = gr.Image(
                 label="🔵 Cone Detection + Track Lines", type="pil", height=350
@@ -744,15 +785,15 @@ with gr.Blocks(
             result_odometry_img = gr.Image(label="🎯 Odometry Matches", type="pil", height=350)
         result_json = gr.File(label="📥 Download Detected Cones (JSON)", interactive=False)
 
+        with gr.Accordion("📋 Pipeline Log", open=False):
+            pipeline_output = gr.Textbox(label="Output", lines=10, show_label=False)
+
         gr.Markdown("---")
         restart_btn = gr.Button("▶️ Start Pipeline", variant="primary", size="lg")
 
     # Navigation handlers
     def show_config_page():
         return gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
-
-    def show_landing_page():
-        return gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
 
     start_btn.click(
         fn=show_config_page,

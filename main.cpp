@@ -5,7 +5,12 @@
 int main(int argc, char *argv[])
 {
     // Load pipeline parameters from configuration file
-    std::string configPath = "config/default_params.json";
+    // Try current_params.json first (modified params), fallback to default_params.json
+    std::string configPath = "config/current_params.json";
+    if (!std::ifstream(configPath).good())
+    {
+        configPath = "config/default_params.json";
+    }
     initializePipelineParams(configPath);
 
     std::cout << "=== MODULAR DRIVERLESS PIPELINE ===" << std::endl;

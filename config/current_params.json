@@ -2,7 +2,7 @@
   "version": "1.0",
   "description": "Driverless pipeline parameters - updated via Gradio",
   "colorDetection": {
-    "erosionIterations": 2,
+    "erosionIterations": 1,
     "dilationIterations": 2,
     "morphKernelSize": 2
   },
@@ -12,16 +12,16 @@
     "verticalMergeThreshold": 20,
     "horizontalMergeThreshold": 10,
     "orange": {
-      "maxBoundingBoxArea": 6000,
+      "maxBoundingBoxArea": 4000,
       "verticalMergeThreshold": 100,
       "horizontalMergeThreshold": 10,
       "keepClosestN": 2
     },
     "blue": {
-      "verticalMergeThreshold": 100
+      "verticalMergeThreshold": 20
     },
     "yellow": {
-      "verticalMergeThreshold": 100
+      "verticalMergeThreshold": 20
     }
   },
   "roadMask": {
