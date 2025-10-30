@@ -22,7 +22,7 @@ Of course, mostly perplexity to brush up on basics, Claude for some library mang
 ### Task 1: opening the image
 Self explanatory.
 
-### Task 2: finding the cones
+### Task 2: finding the cones
 I opted for colour masking instead of a DL based approach because, as I mentioned earlier, I'm less familiar with thisw way and as such it was a more fun challenge. I'm basically looking for the colour of the cones in the image, masking out both the car and all greyish hues. After that, I'm doing some transformations to make the mask better, but they're all empirically tested - not really scientifically derived.
 
 ### Task 3: dividing the cones based on colour
