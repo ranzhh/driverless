@@ -1,69 +1,91 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
-#include "include/utils.hpp"
-#include "include/detection.hpp"
-#include "include/track.hpp"
-#include "include/odometry.hpp"
+#include "include/pipeline.hpp"
 
-int main()
+int main(int argc, char *argv[])
 {
-    // Task 1: Load and display an image
-    std::cout << "Task 1: Loading and displaying an image..." << std::endl;
+    std::cout << "=== MODULAR DRIVERLESS PIPELINE ===" << std::endl;
+    std::cout << "This program demonstrates three independent steps:" << std::endl;
+    std::cout << "  1. Detect cones and save to JSON" << std::endl;
+    std::cout << "  2. Draw track lines from JSON data" << std::endl;
+    std::cout << "  3. Calculate odometry between frames" << std::endl;
+    std::cout << std::endl;
 
-    cv::Mat img1 = cv::imread("data/frame_1.png");
-    cv::Mat img2 = cv::imread("data/frame_2.png");
-    if (img1.empty())
-        return -1;
+    // Check if user wants to run specific steps
+    bool runStep1 = true;
+    bool runStep2 = true;
+    bool runStep3 = true;
 
-    cv::imwrite("output/original_image.png", img1);
-    std::cout << "Saved: output/original_image.png" << std::endl;
+    if (argc > 1)
+    {
+        // Parse command line arguments to run specific steps
+        runStep1 = false;
+        runStep2 = false;
+        runStep3 = false;
 
-    // Task 2: Detect the cones in the image
-    std::cout << "Task 2 (and 3): Detecting cones (and their colour) in the image..." << std::endl;
+        for (int i = 1; i < argc; ++i)
+        {
+            std::string arg = argv[i];
+            if (arg == "1" || arg == "detect")
+                runStep1 = true;
+            else if (arg == "2" || arg == "track")
+                runStep2 = true;
+            else if (arg == "3" || arg == "odometry")
+                runStep3 = true;
+            else if (arg == "all")
+            {
+                runStep1 = true;
+                runStep2 = true;
+                runStep3 = true;
+            }
+            else
+            {
+                std::cout << "Usage: " << argv[0] << " [1|detect] [2|track] [3|odometry] [all]" << std::endl;
+                std::cout << "  Run specific steps or all steps (default: all)" << std::endl;
+                std::cout << "Examples:" << std::endl;
+                std::cout << "  " << argv[0] << "           # Run all steps" << std::endl;
+                std::cout << "  " << argv[0] << " 1         # Run only step 1 (detect cones)" << std::endl;
+                std::cout << "  " << argv[0] << " 2         # Run only step 2 (draw track lines)" << std::endl;
+                std::cout << "  " << argv[0] << " 1 2       # Run steps 1 and 2" << std::endl;
+                return 0;
+            }
+        }
+    }
 
-    // Convert to HSV color space
-    cv::Mat hsvImage;
-    cv::cvtColor(img1, hsvImage, cv::COLOR_BGR2HSV);
+    // Define file paths
+    const std::string inputImage = "data/frame_1.png";
+    const std::string inputImage2 = "data/frame_2.png";
+    const std::string conesJsonPath = "output/detected_cones.json";
+    const std::string trackImagePath = "output/detected_cones.png";
+    const std::string odometryImagePath = "output/odometry_matches.png";
 
-    cv::Mat carMask = createCarMask(img1);
-    cv::Mat roadMask = detectColour(hsvImage, {"Road", {{cv::Scalar(0, 0, 0), cv::Scalar(179, 70, 190)}}}, carMask, false, true);
+    // STEP 1: Detect cones from image and save to JSON
+    if (runStep1)
+    {
+        ConeDetectionResult cones = detectConesFromImage(inputImage, conesJsonPath);
+    }
 
-    cv::Mat orangeMask = detectColour(hsvImage, getColourMask(ORANGE), carMask | roadMask, true);
-    cv::Mat blueMask = detectColour(hsvImage, getColourMask(BLUE), carMask | roadMask, true);
-    cv::Mat yellowMask = detectColour(hsvImage, getColourMask(YELLOW), carMask | roadMask, true);
+    // STEP 2: Draw track lines using detected cones from JSON
+    if (runStep2)
+    {
+        cv::Mat trackImage = drawTrackLinesFromCones(inputImage, conesJsonPath, trackImagePath);
+    }
 
-    // The vertical threshold should really be calculated based on the spacing of the cones in the real world and the camera parameters...
-    // For now these seem to work ok
-    auto orangeCones = identifyCones(orangeMask, img1, 100, 10, 4000);
-    auto blueCones = identifyCones(blueMask, img1, 20);
-    auto yellowCones = identifyCones(yellowMask, img1, 20);
+    // STEP 3: Calculate odometry between two frames
+    if (runStep3)
+    {
+        cv::Mat odometryImage = calculateOdometry(inputImage, inputImage2, odometryImagePath);
+    }
 
-    // Small refinement, there's no reason to have too many orange if there are any lying around
-    // The orange cones should only be 2 and close to the car when we're starting; in a real world scenario we'd ignore them after starting.
-    std::sort(orangeCones.begin(), orangeCones.end(), [](const Cone &a, const Cone &b)
-              { return a.center.y > b.center.y; });
-
-    if (orangeCones.size() > 2)
-        orangeCones.resize(2);
-
-    // Task 4: Find the track boundaries by connecting the cones
-    std::cout << "Task 4: Connecting the detected cones to form track boundaries..." << std::endl;
-
-    // Connect the cones
-    cv::Mat outputImage;
-    img1.copyTo(outputImage);
-    outputImage = connectCones(outputImage, blueCones, cv::Scalar(255, 0, 0), 150);
-    outputImage = connectCones(outputImage, yellowCones, cv::Scalar(0, 255, 255), 150);
-
-    cv::imwrite("output/detected_cones.png", outputImage);
-    std::cout << "Saved: output/detected_cones.png" << std::endl;
-
-    cv::Mat odometryResult = calcOdometry(img1, img2, carMask);
-    cv::imwrite("output/odometry_matches.png", odometryResult);
-    std::cout << "Saved: output/odometry_matches.png" << std::endl;
-
-    std::cout << "\nAll results saved to output/ directory" << std::endl;
-    std::cout << "View them at: http://localhost:8080" << std::endl;
+    std::cout << "\n=== PIPELINE COMPLETE ===" << std::endl;
+    std::cout << "Output files:" << std::endl;
+    if (runStep1)
+        std::cout << "  - Detected cones JSON: " << conesJsonPath << std::endl;
+    if (runStep2)
+        std::cout << "  - Track lines image: " << trackImagePath << std::endl;
+    if (runStep3)
+        std::cout << "  - Odometry visualization: " << odometryImagePath << std::endl;
+    std::cout << "\nView results at: http://localhost:8080" << std::endl;
 
     return 0;
 }
