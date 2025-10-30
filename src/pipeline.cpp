@@ -295,6 +295,13 @@ cv::Mat drawTrackLinesFromCones(
     outputImage = connectCones(outputImage, cones.yellowCones, cv::Scalar(0, 255, 255),
                                g_params.trackDrawing.maxConeDistance, g_params.trackDrawing.verticalPenaltyFactor);
 
+    // Draw orange cones individually (they are on opposite sides, so don't connect them)
+    for (const auto &cone : cones.orangeCones)
+    {
+        cv::rectangle(outputImage, cone.boundingBox, cv::Scalar(0, 255, 0), 2);
+        cv::circle(outputImage, cone.center, 3, cv::Scalar(0, 165, 255), -1);
+    }
+
     // Save output image
     cv::imwrite(outputImagePath, outputImage);
     std::cout << "Saved track lines image to: " << outputImagePath << std::endl;
